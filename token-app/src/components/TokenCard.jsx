@@ -14,7 +14,7 @@ export default function TokenCard({ token, onDelete, onDetails, onActivity }) {
     return (
       <div className="token-card">
         <div className="token-row">
-          <strong>{token?.name || "Без названия"}</strong>
+          <strong>{token?.name || "Без названия"} </strong>
           <span>{token?.status || "—"}</span>
         </div>
   

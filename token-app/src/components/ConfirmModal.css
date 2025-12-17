@@ -24,4 +24,37 @@
     gap: 12px;
     margin-top: 20px;
   }
-  
+  /* шире модалки (ManageToken + History) */
+.modal {
+  width: min(1100px, 96vw);   /* было меньше — станет шире */
+  max-width: 1100px;
+}
+
+/* чтобы длинный контент не вылезал за экран */
+.modal {
+  max-height: 88vh;
+  overflow: auto;
+}
+
+/* таблицы в history: горизонтальный скролл если не влезает */
+.activity-table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;          /* важно для overflow */
+  overflow-x: auto;        /* скролл по горизонтали */
+  white-space: nowrap;     /* чтобы колонки не ломались */
+}
+
+.activity-table th,
+.activity-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* длинный текст в ячейке "Текст" пусть переносится */
+.activity-table td:last-child {
+  white-space: normal;
+  min-width: 360px;
+  max-width: 520px;
+  word-break: break-word;
+}

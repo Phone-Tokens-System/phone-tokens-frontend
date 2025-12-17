@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SMS Demo</title>
+    <style>
+      body { font-family: system-ui, Arial, sans-serif; margin: 24px; }
+      .wrap { max-width: 820px; margin: 0 auto; }
+      .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; }
+      .row { display: grid; gap: 8px; margin-bottom: 12px; }
+      label { font-weight: 600; }
+      input, textarea { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; }
+      textarea { min-height: 120px; resize: vertical; }
+      button { padding: 10px 14px; border-radius: 10px; border: 0; cursor: pointer; }
+      .btn { background: #111827; color: white; }
+      .muted { opacity: 0.75; font-size: 13px; }
+      .ok { color: #16a34a; }
+      .err { color: #dc2626; white-space: pre-wrap; }
+      pre { background: #f6f6f6; padding: 10px; border-radius: 10px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h2>Отправка SMS (demo)</h2>
+      <p class="muted">
+        Отправляет <code>POST /api/v1/sms/send</code> как JSON. Сертификат читается из файла как текст и кладётся в поле <code>certificate</code>.
+      </p>
+
+      <div class="card">
+        <div class="row">
+          <label>API Base URL</label>
+          <input id="apiBase" placeholder="http://localhost:8080" value="http://localhost:8080" />
+          <div class="muted">Если используешь ngrok — вставь сюда https://xxxxx.ngrok-free.app</div>
+        </div>
+
+        <div class="row">
+          <label>JWT (необязательно)</label>
+          <input id="jwt" placeholder="Bearer token (если нужно)" />
+          <div class="muted">Если бэк требует авторизацию — вставь JWT (без слова Bearer, просто сам токен).</div>
+          <div class="muted">
+            Если поле пустое — возьмём JWT из localStorage ключа <code>token</code> (после логина на /auth).
+          </div>
+          
+        </div>
+
+        <div class="row">
+          <label>client_token (токен пользователя)</label>
+          <input id="clientToken" placeholder="строка токена" />
+        </div>
+
+        <div class="row">
+          <label>service_name</label>
+          <input id="serviceName" placeholder="например: demo-service" />
+        </div>
+
+        <div class="row">
+          <label>Текст SMS</label>
+          <textarea id="text" placeholder="Сообщение..."></textarea>
+        </div>
+
+        <div class="row">
+          <label>Certificate file (PEM/text)</label>
+          <input id="certFile" type="file" />
+          <div class="muted">Файл будет прочитан как текст и отправлен в поле <code>certificate</code>.</div>
+        </div>
+
+        <button class="btn" id="sendBtn">Отправить SMS</button>
+
+        <p id="status" class="muted"></p>
+        <p id="error" class="err"></p>
+
+        <div class="row" style="margin-top: 14px;">
+          <label>Ответ сервера</label>
+          <pre id="response"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+          if (!file) return resolve("");
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(reader.error || new Error("File read error"));
+          reader.readAsText(file);
+        });
+      }
+
+      $("sendBtn").addEventListener("click", async () => {
+        $("status").textContent = "Отправка...";
+        $("status").className = "muted";
+        $("error").textContent = "";
+        $("response").textContent = "";
+
+        try {
+          const apiBase = $("apiBase").value.trim().replace(/\/$/, "");
+          const jwtFromLS = localStorage.getItem("token") || "";
+
+// 2) если пользователь ввёл вручную — используем это, иначе localStorage
+const jwtManual = $("jwt").value.trim();
+const jwt = jwtManual || jwtFromLS;
+          const client_token = $("clientToken").value.trim();
+          const service_name = $("serviceName").value.trim();
+          const text = $("text").value;
+
+          if (!apiBase) throw new Error("API Base URL пустой");
+          if (!client_token) throw new Error("client_token пустой");
+          if (!service_name) throw new Error("service_name пустой");
+          if (!text.trim()) throw new Error("Текст пустой");
+
+          const file = $("certFile").files?.[0] || null;
+          const certificate = await readFileAsText(file);
+
+          if (!certificate.trim()) {
+            throw new Error("Сертификат пустой (выбери файл с сертификатом)");
+          }
+
+          const payload = { certificate, client_token, service_name, text };
+
+          const headers = { "Content-Type": "application/json" };
+          if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
+          
+
+          const res = await fetch(`${apiBase}/api/v1/sms/send`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          });
+
+          const raw = await res.text().catch(() => "");
+          $("response").textContent = raw || "(empty)";
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${raw || "error"}`);
+          }
+
+          $("status").textContent = "✅ Отправлено";
+          $("status").className = "ok";
+        } catch (e) {
+          $("status").textContent = "Ошибка";
+          $("status").className = "err";
+          $("error").textContent = e?.message || String(e);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -79,19 +79,14 @@ export default function MyTokensPage() {
   async function handleCreateToken(req, serviceId) {
     try {
       setCreating(true);
-  
-      // 1) создаём токен
       const created = await createToken(req);
   
-      // 2) если ввели serviceId/agentId — привязываем по имени токена
-      // (требование: bind по token_name и agent_id)
+      
       if (serviceId) {
         const bound = await bindAgentToToken(serviceId, req.name);
   
-        // если bind вернул tokenResponse — обновим список этим объектом
         if (bound && typeof bound === "object") {
           setTokens((prev) => {
-            // заменим по name/id если совпало, иначе добавим
             const idx = prev.findIndex((t) => t.id === bound.id || t.name === bound.name);
             if (idx >= 0) {
               const copy = [...prev];
@@ -138,6 +133,13 @@ export default function MyTokensPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1 style={{ margin: 0 }}>Мои токены</h1>
         <button onClick={() => setCreateOpen(true)}>Создать токен</button>
+        <button
+  type="button"
+  onClick={() => window.open("http://localhost:5173/sms-demo.html", "_blank")}
+>
+  SMS Demo
+</button>
+
       </div>
 
       <div style={{ marginTop: 16 }}>
