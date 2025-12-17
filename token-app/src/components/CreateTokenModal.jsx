@@ -1,27 +1,41 @@
 import { useMemo, useState } from "react";
-import "./ConfirmModal.css"; 
+import "./ConfirmModal.css";
 
 const TTL_OPTIONS = [
   { label: "1 день", value: "1d", seconds: 86400 },
   { label: "7 дней", value: "7d", seconds: 7 * 86400 },
   { label: "30 дней", value: "30d", seconds: 30 * 86400 },
   { label: "90 дней", value: "90d", seconds: 90 * 86400 },
-  { label: "Бессрочно", value: "forever", seconds: null }, 
 ];
+
+const isUUID = (v) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 
 export default function CreateTokenModal({ onClose, onSubmit, loading }) {
   const [name, setName] = useState("");
   const [ttl, setTtl] = useState("30d");
   const [permSms, setPermSms] = useState(true);
   const [permCalls, setPermCalls] = useState(false);
-  const [serviceId, setServiceId] = useState(""); 
+  const [serviceId, setServiceId] = useState("");
+  const [err, setErr] = useState("");
 
   const ttlSeconds = useMemo(() => {
-    return TTL_OPTIONS.find((o) => o.value === ttl)?.seconds ?? null;
+    return TTL_OPTIONS.find((o) => o.value === ttl)?.seconds ?? 30 * 86400;
   }, [ttl]);
 
   function handleSubmit(e) {
     e.preventDefault();
+    setErr("");
+
+    const agentId = serviceId.trim();
+    if (!agentId) {
+      setErr("Укажи ID сервиса (agent_id). Сейчас на бэке он обязателен.");
+      return;
+    }
+    if (!isUUID(agentId)) {
+      setErr("agent_id должен быть UUID (например: e18f2584-3b88-4bac-b881-81463756d5a7)");
+      return;
+    }
 
     const permissions = [];
     if (permSms) permissions.push("sms");
@@ -30,14 +44,11 @@ export default function CreateTokenModal({ onClose, onSubmit, loading }) {
     const req = {
       name: name.trim(),
       permissions,
-      // ttl_seconds отправляем только если не "бессрочно"
-      ...(ttlSeconds != null ? { ttl_seconds: ttlSeconds } : {}),
-      // swagger createTokenRequest НЕ содержит service_id/agent_id,
-      // поэтому serviceId пока просто в UI (для девелопмента).
-      // serviceId,
+      ttl_seconds: ttlSeconds,
+      agent_id: agentId,
     };
 
-    onSubmit?.(req, serviceId.trim() || null);
+    onSubmit?.(req);
   }
 
   return (
@@ -49,10 +60,8 @@ export default function CreateTokenModal({ onClose, onSubmit, loading }) {
           <div>
             <label><strong>Название токена</strong></label>
             <input
-              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Например: marketing-sms"
               style={{ width: "100%", marginTop: 6 }}
               required
             />
@@ -66,15 +75,13 @@ export default function CreateTokenModal({ onClose, onSubmit, loading }) {
               style={{ width: "100%", marginTop: 6 }}
             >
               {TTL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label><strong>Разрешения (scopes)</strong></label>
+            <label><strong>Разрешения</strong></label>
             <div style={{ display: "grid", gap: 8, marginTop: 6 }}>
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
@@ -84,7 +91,6 @@ export default function CreateTokenModal({ onClose, onSubmit, loading }) {
                 />
                 SMS
               </label>
-
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
                   type="checkbox"
@@ -97,15 +103,17 @@ export default function CreateTokenModal({ onClose, onSubmit, loading }) {
           </div>
 
           <div>
-            <label><strong>Привязанный сервис (dev)</strong></label>
+            <label><strong>ID сервиса (agent_id, UUID)</strong></label>
             <input
-              type="text"
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
-              placeholder="ID сервиса/агента (для разработки)"
+              placeholder="e18f2584-3b88-4bac-b881-81463756d5a7"
               style={{ width: "100%", marginTop: 6 }}
+              required
             />
           </div>
+
+          {err && <p style={{ color: "red", margin: 0 }}>{err}</p>}
 
           <div className="modal-buttons">
             <button type="submit" disabled={loading || !name.trim()}>

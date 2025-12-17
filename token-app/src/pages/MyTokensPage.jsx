@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { getMyTokens, deleteToken, createToken, bindAgentToToken } from "../api/tokens";
+import TokenManageModal from "../components/TokenManageModal";
+import { updateTokenTTL } from "../api/tokens";
+import { updateTokenPermissionsMock, unbindAgentMock } from "../api/tokens";
 
 import TokenCard from "../components/TokenCard";
 import TokenDetailsModal from "../components/TokenDetailsModal";
@@ -19,19 +22,37 @@ export default function MyTokensPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  useEffect(() => {
+    localStorage.setItem("tokens_cache", JSON.stringify(tokens));
+  }, [tokens]);
+
   async function fetchTokens() {
     try {
       setLoading(true);
       setError("");
+  
       const data = await getMyTokens();
-      setTokens(Array.isArray(data) ? data : []);
+  
+      // если бек реально вернул массив токенов
+      if (Array.isArray(data) && data.length > 0) {
+        setTokens(data);
+        localStorage.setItem("tokens_cache", JSON.stringify(data));
+        return;
+      }
+  
+      // ⚠️ бек вернул пусто (200 + Content-Length: 0)
+      const cached = JSON.parse(localStorage.getItem("tokens_cache") || "[]");
+      setTokens(cached);
     } catch (err) {
+      // если запрос упал — тоже пробуем кэш
+      const cached = JSON.parse(localStorage.getItem("tokens_cache") || "[]");
+      setTokens(cached);
       setError(err?.message || "Ошибка при загрузке токенов");
-      setTokens([]);
     } finally {
       setLoading(false);
     }
   }
+  
 
   useEffect(() => {
     fetchTokens();
@@ -144,8 +165,35 @@ export default function MyTokensPage() {
       )}
 
       {selectedToken && (
-        <TokenDetailsModal token={selectedToken} onClose={() => setSelectedToken(null)} />
+        <TokenManageModal
+        token={selectedToken}
+        onClose={() => setSelectedToken(null)}
+        onDelete={(id) => {
+          setSelectedToken(null);   // 👈 закрываем окно редактирования
+          requestDelete(id);        // 👈 открываем ConfirmModal
+        }}
+      
+        onUpdateTTL={async (id, ttlSeconds) => {
+          await updateTokenTTL(id, ttlSeconds);
+          await fetchTokens();
+        }}
+      
+        onUpdatePermissions={async (id, permissions) => {
+          const updated = await updateTokenPermissionsMock(id, permissions);
+          // обновим state сразу, чтобы UI не дёргался
+          setTokens((prev) => prev.map((t) => (t.id === id ? updated : t)));
+          setSelectedToken(updated);
+        }}
+      
+        onUnbindService={async (tok) => {
+          const updated = await unbindAgentMock(tok.id);
+          setTokens((prev) => prev.map((t) => (t.id === tok.id ? updated : t)));
+          setSelectedToken(updated);
+        }}
+      />
+      
       )}
+
 
       {activityToken && (
         <TokenActivityModal token={activityToken} onClose={() => setActivityToken(null)} />
