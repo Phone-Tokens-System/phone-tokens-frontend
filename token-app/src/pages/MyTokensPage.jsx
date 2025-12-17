@@ -3,6 +3,7 @@ import { getMyTokens, deleteToken, createToken, bindAgentToToken } from "../api/
 import TokenManageModal from "../components/TokenManageModal";
 import { updateTokenTTL } from "../api/tokens";
 import { updateTokenPermissionsMock, unbindAgentMock } from "../api/tokens";
+import LogoutButton from "../components/LogoutButton";
 
 import TokenCard from "../components/TokenCard";
 import TokenDetailsModal from "../components/TokenDetailsModal";
@@ -132,6 +133,7 @@ export default function MyTokensPage() {
     <div className="container">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1 style={{ margin: 0 }}>Мои токены</h1>
+        <LogoutButton />
         <button onClick={() => setCreateOpen(true)}>Создать токен</button>
         <button
   type="button"

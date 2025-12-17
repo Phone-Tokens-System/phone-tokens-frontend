@@ -4,40 +4,49 @@ import "./AuthPage.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-function formatPhoneRU(value) {
-    const digits = String(value || "").replace(/\D/g, "");
-    let d = digits;
+function normalizeDigits(input) {
+  let d = String(input || "").replace(/\D/g, "");
 
-    if (d.startsWith("7")) d = d.slice(1);
-    d = d.slice(0, 10);
+  // 8XXXXXXXXXX -> 7XXXXXXXXXX
+  if (d.startsWith("8")) d = "7" + d.slice(1);
 
-    const a = d.slice(0, 3);
-    const b = d.slice(3, 6);
-    const c = d.slice(6, 8);
-    const e = d.slice(8, 10);
+  // если начали без 7 — добавим
+  if (d && !d.startsWith("7")) d = "7" + d;
 
-    if (!digits) return ""; // если ничего нет — пусто
-
-    let out = "+7"; // только если есть цифры
-    if (a) out += ` (${a}`;
-    if (a.length === 3) out += ")";
-    if (b) out += ` ${b}`;
-    if (c) out += `-${c}`;
-    if (e) out += `-${e}`;
-
-    return out;
+  // 7 + 10 цифр
+  return d.slice(0, 11);
 }
 
+function formatPhoneRUFromDigits(digits11) {
+  const d = normalizeDigits(digits11);
+  if (!d) return "";
 
-function phoneToApi(masked) {
-  const digits = String(masked || "").replace(/\D/g, "");
-  const last10 = digits.slice(-10);
-  return last10.length === 10 ? `7${last10}` : "";
+  const ten = d.startsWith("7") ? d.slice(1) : d;
+
+  const a = ten.slice(0, 3);
+  const b = ten.slice(3, 6);
+  const c = ten.slice(6, 8);
+  const e = ten.slice(8, 10);
+
+  let out = "+7";
+  if (a) out += ` (${a}`;
+  if (a.length === 3) out += ")";
+  if (b) out += ` ${b}`;
+  if (c) out += `-${c}`;
+  if (e) out += `-${e}`;
+  return out;
+}
+
+function phoneToApiFromDigits(digits11) {
+  const d = normalizeDigits(digits11);
+  return d.length === 11 ? `+${d}` : "";
 }
 
 export default function AuthPage() {
   const [isRegister, setIsRegister] = useState(false);
-  const [phone, setPhone] = useState("");
+
+  // храним ТОЛЬКО цифры, без +7 и скобок
+  const [phoneDigits, setPhoneDigits] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -50,7 +59,7 @@ export default function AuthPage() {
     setLoading(true);
     setError("");
 
-    const apiPhone = phoneToApi(phone);
+    const apiPhone = phoneToApiFromDigits(phoneDigits);
     if (!apiPhone) {
       setLoading(false);
       setError("Введите номер полностью");
@@ -68,23 +77,42 @@ export default function AuthPage() {
         body: JSON.stringify(payload),
       });
 
-      const text = await res.text().catch(() => "");
-      const data = text ? JSON.parse(text) : {};
+      const rawText = await res.text().catch(() => "");
+
+      // безопасный парсинг: JSON или text/plain
+      let data = {};
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = { message: rawText };
+        }
+      }
 
       if (!res.ok) {
-        const msg = data?.message || (typeof data === "object" ? Object.values(data)[0] : "") || "Ошибка";
-        throw new Error(msg);
+        const msg =
+          data?.message ||
+          (typeof data === "object" && Object.values(data)[0]) ||
+          `Ошибка ${res.status}`;
+        throw new Error(String(msg));
       }
 
       if (!isRegister) {
         if (data?.token) localStorage.setItem("token", data.token);
+
+        // чистим поля, чтобы не подставлялись
+        setPassword("");
+        setPhoneDigits("");
+
         navigate("/tokens");
       } else {
         setIsRegister(false);
         setPassword("");
+        setPhoneDigits("");
+        setError("Аккаунт создан. Теперь войдите.");
       }
     } catch (err) {
-      setError(err?.message || "Ошибка");
+      setError(err?.message || "Ошибка запроса");
     } finally {
       setLoading(false);
     }
@@ -95,17 +123,18 @@ export default function AuthPage() {
       <h1>{isRegister ? "Регистрация" : "Вход"}</h1>
 
       <div className="token-card auth-card">
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="auth-form" autoComplete="off">
           <div className="skew-field">
             <div className="skew-bg" />
             <input
               className="skew-input"
               type="text"
               inputMode="tel"
-              autoComplete="tel"
+              autoComplete="off"
+              name="phone-login"
               placeholder="+7 (___) ___-__-__"
-              value={phone}
-              onChange={(e) => setPhone(formatPhoneRU(e.target.value))}
+              value={formatPhoneRUFromDigits(phoneDigits)}
+              onChange={(e) => setPhoneDigits(normalizeDigits(e.target.value))}
               maxLength={18}
               required
             />
@@ -119,6 +148,8 @@ export default function AuthPage() {
               placeholder="Пароль"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              name="password-login"
               required
             />
           </div>
@@ -136,6 +167,8 @@ export default function AuthPage() {
               onClick={() => {
                 setError("");
                 setIsRegister((v) => !v);
+                setPassword("");
+                setPhoneDigits("");
               }}
               disabled={loading}
             >

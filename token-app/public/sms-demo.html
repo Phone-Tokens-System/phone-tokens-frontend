@@ -93,7 +93,7 @@
 
         try {
           const apiBase = "http://localhost:8080";
-          const jwt = localStorage.getItem("token") || "";
+          const jwt = localStorage.getItem("token");
 
           const client_token = $("clientToken").value.trim();
           const service_name = $("serviceName").value.trim();
