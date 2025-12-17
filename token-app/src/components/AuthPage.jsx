@@ -4,17 +4,27 @@ import "./AuthPage.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-function formatPhoneRU(value) {
-  const digits = String(value || "").replace(/\D/g, "");
+function normalizeDigits(input) {
+  let d = String(input || "").replace(/\D/g, "");
 
-  let d = digits;
-  if (d.length >= 11 && (d[0] === "7" || d[0] === "8")) d = d.slice(1);
-  d = d.slice(0, 10);
+  // если пользователь начал с 8 -> делаем 7
+  if (d.startsWith("8")) d = "7" + d.slice(1);
 
-  const a = d.slice(0, 3);
-  const b = d.slice(3, 6);
-  const c = d.slice(6, 8);
-  const e = d.slice(8, 10);
+  // если пользователь начал без 7, добавим 7
+  if (d && !d.startsWith("7")) d = "7" + d;
+
+  // максимум 11 цифр: 7 + 10
+  return d.slice(0, 11);
+}
+
+function formatPhoneRUFromDigits(digits11) {
+  const d = normalizeDigits(digits11);
+  const ten = d.startsWith("7") ? d.slice(1) : d; // последние 10
+
+  const a = ten.slice(0, 3);
+  const b = ten.slice(3, 6);
+  const c = ten.slice(6, 8);
+  const e = ten.slice(8, 10);
 
   let out = "+7";
   if (a) out += ` (${a}`;
@@ -22,19 +32,19 @@ function formatPhoneRU(value) {
   if (b) out += ` ${b}`;
   if (c) out += `-${c}`;
   if (e) out += `-${e}`;
-
   return out;
 }
 
-function phoneToApi(masked) {
-  const digits = String(masked || "").replace(/\D/g, "");
-  const last10 = digits.slice(-10);
-  return last10.length === 10 ? `+7${last10}` : "";
+function phoneToApiFromDigits(digits11) {
+  const d = normalizeDigits(digits11);
+  return d.length === 11 ? `+${d}` : "";
 }
+
 
 export default function AuthPage() {
   const [isRegister, setIsRegister] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [phoneDigits, setPhoneDigits] = useState(""); // храним только цифры
+
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -47,7 +57,7 @@ export default function AuthPage() {
     setLoading(true);
     setError("");
 
-    const apiPhone = phoneToApi(phone);
+    const apiPhone = phoneToApiFromDigits(phoneDigits);
     if (!apiPhone) {
       setLoading(false);
       setError("Введите номер полностью");
@@ -101,8 +111,8 @@ export default function AuthPage() {
               inputMode="tel"
               autoComplete="tel"
               placeholder="+7 (___) ___-__-__"
-              value={phone}
-              onChange={(e) => setPhone(formatPhoneRU(e.target.value))}
+              value={formatPhoneRUFromDigits(phoneDigits)}
+              onChange={(e) => setPhoneDigits(normalizeDigits(e.target.value))}
               maxLength={18}
               required
             />

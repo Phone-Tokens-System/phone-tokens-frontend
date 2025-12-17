@@ -26,7 +26,8 @@ export default function TokenCard({ token, onDelete, onDetails, onActivity }) {
   
         <div className="buttons">
           <button onClick={onDetails}>Подробнее</button>
-          <button onClick={onActivity}>Активность</button>
+          <button onClick={onActivity}>History</button>
+
           <button className="danger" onClick={() => onDelete?.(token.id)}>
             Удалить
           </button>
