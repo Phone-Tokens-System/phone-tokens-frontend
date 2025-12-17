@@ -1,0 +1,180 @@
+.auth-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: radial-gradient(1200px 600px at 50% 0%, #172554 0%, #050816 55%, #030712 100%);
+  }
+  
+  .auth-card {
+    width: min(440px, 100%);
+    border-radius: 18px;
+    padding: 26px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  }
+  
+  .auth-head {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  
+  .auth-title {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.92);
+  }
+  
+  .auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  
+  .auth-tab {
+    height: 42px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 800;
+    cursor: pointer;
+  }
+  
+  .auth-tab.active {
+    background: rgba(99, 102, 241, 0.22);
+    border-color: rgba(99, 102, 241, 0.55);
+    color: rgba(255, 255, 255, 0.92);
+  }
+  
+  .auth-form {
+    display: grid;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  
+  /* СКОШЕННЫЕ прямоугольники */
+  .skew-field {
+    position: relative;
+    height: 54px;
+  }
+  
+  .skew-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    transform: skewX(-12deg);
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+  }
+  
+  .skew-field:focus-within .skew-bg {
+    transform: skewX(-12deg) scale(1.01);
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(99, 102, 241, 0.55);
+  }
+  
+  /* Инпут НЕ skew, чтобы текст был ровный, но по центру */
+  .skew-input {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.92);
+  
+    text-align: center;
+    padding: 0 16px;
+    font-size: 15px;
+  }
+  
+  .skew-input::placeholder {
+    color: rgba(255, 255, 255, 0.50);
+  }
+  
+  .auth-hint {
+    font-size: 13px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.66);
+  }
+  
+  .auth-error {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 14px;
+    text-align: center;
+  }
+  
+  .auth-submit {
+    height: 48px;
+    border: 0;
+    border-radius: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.95);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(59, 130, 246, 0.95));
+    box-shadow: 0 14px 30px rgba(59, 130, 246, 0.18);
+  }
+  
+  .auth-submit:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+  .auth-like-tokens {
+    padding-top: 24px;
+  }
+  
+  .auth-card {
+    margin-top: 16px;
+  }
+  
+  .auth-form {
+    display: grid;
+    gap: 14px;
+  }
+  
+  .skew-field {
+    position: relative;
+    height: 52px;
+  }
+  
+  .skew-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    transform: skewX(-12deg);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  
+  .skew-field:focus-within .skew-bg {
+    border-color: rgba(99, 102, 241, 0.55);
+  }
+  
+  .skew-input {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    text-align: center;
+    padding: 0 16px;
+  }
+  
+  .auth-error {
+    color: red;
+    margin: 0;
+    text-align: center;
+  }
+  
