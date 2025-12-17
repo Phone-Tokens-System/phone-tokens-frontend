@@ -28,13 +28,8 @@
       </p>
 
       <div class="card">
-        <div class="row">
-          <label>API Base URL</label>
-          <input id="apiBase" placeholder="http://localhost:8080" value="http://localhost:8080" />
-          <div class="muted">Если используешь ngrok — вставь сюда https://xxxxx.ngrok-free.app</div>
-        </div>
 
-        <div class="row">
+        <!-- <div class="row">
           <label>JWT (необязательно)</label>
           <input id="jwt" placeholder="Bearer token (если нужно)" />
           <div class="muted">Если бэк требует авторизацию — вставь JWT (без слова Bearer, просто сам токен).</div>
@@ -42,7 +37,7 @@
             Если поле пустое — возьмём JWT из localStorage ключа <code>token</code> (после логина на /auth).
           </div>
           
-        </div>
+        </div> -->
 
         <div class="row">
           <label>client_token (токен пользователя)</label>
@@ -97,12 +92,9 @@
         $("response").textContent = "";
 
         try {
-          const apiBase = $("apiBase").value.trim().replace(/\/$/, "");
-          const jwtFromLS = localStorage.getItem("token") || "";
+          const apiBase = "http://localhost:8080";
+          const jwt = localStorage.getItem("token") || "";
 
-// 2) если пользователь ввёл вручную — используем это, иначе localStorage
-const jwtManual = $("jwt").value.trim();
-const jwt = jwtManual || jwtFromLS;
           const client_token = $("clientToken").value.trim();
           const service_name = $("serviceName").value.trim();
           const text = $("text").value;
