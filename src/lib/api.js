@@ -154,8 +154,64 @@ export async function getSmsLogsByAgent(token, agentId) {
   return request(`/api/v1/sms/agents/${encodeURIComponent(agentId)}`, { token });
 }
 
+export async function getUserProfileFilters(token) {
+  return requestWithFallback(
+    ['/api/v1/user-profile/filters', '/api/v1/userprofile/filters'],
+    { token },
+  );
+}
+
+export async function getMyUserProfile(token) {
+  return request('/api/v1/user-profile/me', { token });
+}
+
+export async function createMyUserProfile(token, payload) {
+  return request('/api/v1/user-profile', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export async function updateMyUserProfile(token, payload) {
+  return request('/api/v1/user-profile', {
+    method: 'PUT',
+    token,
+    body: payload,
+  });
+}
+
+export async function getAgentUserProfilesFiltered(token, payload) {
+  return request('/api/v1/agents/tokens/user-profile/filtered', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export async function sendSms(token, payload) {
+  return request('/api/v1/sms/send', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export async function sendSmsFiltered(token, payload) {
+  return request('/api/v1/sms/send_filtered', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
 export async function getBalance(token, agentId) {
-  return request(`/api/v1/billing/balance?agent_id=${encodeURIComponent(agentId)}`, { token });
+  const normalizedAgentId = String(agentId || '').trim();
+  if (!normalizedAgentId) {
+    throw new ApiError('agent_id is required', 400, null);
+  }
+
+  return request(`/api/v1/billing/${encodeURIComponent(normalizedAgentId)}/balance`, { token });
 }
 
 export async function createBalanceTopUp(token, payload) {
@@ -205,4 +261,18 @@ export async function deleteUserToken(token, tokenId) {
     method: 'DELETE',
     token,
   });
+}
+
+export async function getDictionaryCountries() {
+  return request('/api/v1/dictionary/countries');
+}
+
+export async function getDictionaryRegions(countryId) {
+  return request(`/api/v1/dictionary/regions?country=${encodeURIComponent(countryId)}`);
+}
+
+export async function getDictionaryCities(countryId, regionId) {
+  return request(
+    `/api/v1/dictionary/cities?country=${encodeURIComponent(countryId)}&region=${encodeURIComponent(regionId)}`,
+  );
 }

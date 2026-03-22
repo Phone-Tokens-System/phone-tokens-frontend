@@ -1,8 +1,9 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import BaseFormField from '../components/base/BaseFormField.vue';
 import { getCurrentUser, login } from '../lib/api';
-import { clearSession, sessionState, setToken } from '../lib/session';
+import { clearSession, sessionState, setAgentId, setToken } from '../lib/session';
 
 const router = useRouter();
 const route = useRoute();
@@ -45,12 +46,19 @@ async function submitForm() {
       return;
     }
 
+    if (role === 'agent') {
+      const profileAgentId = me?.agent_id || me?.agentId || '';
+      setAgentId(profileAgentId);
+    } else {
+      setAgentId('');
+    }
+
     const redirect =
       typeof route.query.redirect === 'string'
         ? route.query.redirect
         : role === 'agent'
           ? '/dashboard/certificates'
-          : '/dashboard/tokens';
+          : '/dashboard/profile';
 
     await router.push(redirect);
   } catch (requestError) {
@@ -67,28 +75,32 @@ async function submitForm() {
       <h1 class="title">Вход</h1>
       <p class="subtitle">Выберите роль и войдите в кабинет под своим аккаунтом.</p>
 
-      <form class="form" @submit.prevent="submitForm">
-        <label class="form-label">
-          Войти как
-          <select v-model="form.role" class="select">
+      <form class="form" aria-label="Форма входа" @submit.prevent="submitForm">
+        <BaseFormField id="login-role" label="Войти как">
+          <select id="login-role" v-model="form.role" class="select">
             <option value="agent">agent</option>
             <option value="user">user</option>
           </select>
-        </label>
+        </BaseFormField>
 
-        <label class="form-label">
-          Телефон
-          <input v-model="form.phone" class="input" type="text" placeholder="79991234567" required />
-        </label>
+        <BaseFormField id="login-phone" label="Телефон" required>
+          <input id="login-phone" v-model="form.phone" class="input" type="text" placeholder="79991234567" required />
+        </BaseFormField>
 
-        <label class="form-label">
-          Пароль
-          <input v-model="form.password" class="input" type="password" placeholder="••••••••" required />
-        </label>
+        <BaseFormField id="login-password" label="Пароль" required>
+          <input
+            id="login-password"
+            v-model="form.password"
+            class="input"
+            type="password"
+            placeholder="••••••••"
+            required
+          />
+        </BaseFormField>
 
-        <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
 
-        <button type="submit" class="btn btn-primary" :disabled="loading">
+        <button type="submit" class="btn btn-primary" :disabled="loading" :aria-busy="loading ? 'true' : 'false'">
           {{ loading ? 'Входим...' : 'Войти' }}
         </button>
       </form>

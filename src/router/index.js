@@ -10,6 +10,7 @@ import BillingSuccessPage from '../pages/BillingSuccessPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import NotFoundPage from '../pages/NotFoundPage.vue';
 import RegisterPage from '../pages/RegisterPage.vue';
+import UserProfileView from '../pages/UserProfileView.vue';
 
 const routes = [
   {
@@ -35,7 +36,7 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: () => (sessionState.claims?.role === 'agent' ? '/dashboard/certificates' : '/dashboard/tokens'),
+        redirect: () => (sessionState.claims?.role === 'agent' ? '/dashboard/certificates' : '/dashboard/profile'),
       },
       {
         path: 'certificates',
@@ -54,6 +55,12 @@ const routes = [
         name: 'dashboard-billing',
         component: AgentBillingView,
         meta: { requiresAgent: true },
+      },
+      {
+        path: 'profile',
+        name: 'dashboard-user-profile',
+        component: UserProfileView,
+        meta: { requiresUser: true },
       },
       {
         path: 'tokens',
@@ -87,7 +94,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   if (to.meta.guestOnly && isAuthenticated.value) {
-    return sessionState.claims?.role === 'agent' ? '/dashboard/certificates' : '/dashboard/tokens';
+    return sessionState.claims?.role === 'agent' ? '/dashboard/certificates' : '/dashboard/profile';
   }
 
   if (to.meta.requiresAuth && !isAuthenticated.value) {
@@ -98,7 +105,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requiresAgent && sessionState.claims?.role !== 'agent') {
-    return '/dashboard/tokens';
+    return '/dashboard/profile';
   }
 
   if (to.meta.requiresUser && sessionState.claims?.role !== 'user') {

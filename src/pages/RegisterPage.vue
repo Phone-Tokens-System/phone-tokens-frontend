@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import BaseFormField from '../components/base/BaseFormField.vue';
 import { register } from '../lib/api';
 
 const router = useRouter();
@@ -67,41 +68,57 @@ async function submitForm() {
       <h1 class="title">Регистрация</h1>
       <p class="subtitle">Выберите роль и заполните поля. Для агента нужны дополнительные данные.</p>
 
-      <form class="form" @submit.prevent="submitForm">
-        <label class="form-label">
-          Телефон
-          <input v-model="form.phone" class="input" type="text" placeholder="79991234567" required />
-        </label>
+      <form class="form" aria-label="Форма регистрации" @submit.prevent="submitForm">
+        <BaseFormField id="register-phone" label="Телефон" required>
+          <input id="register-phone" v-model="form.phone" class="input" type="text" placeholder="79991234567" required />
+        </BaseFormField>
 
-        <label class="form-label">
-          Пароль
-          <input v-model="form.password" class="input" type="password" placeholder="••••••••" required />
-        </label>
+        <BaseFormField id="register-password" label="Пароль" required>
+          <input
+            id="register-password"
+            v-model="form.password"
+            class="input"
+            type="password"
+            placeholder="••••••••"
+            required
+          />
+        </BaseFormField>
 
-        <label class="form-label">
-          Роль
-          <select v-model="form.role" class="select">
+        <BaseFormField id="register-role" label="Роль">
+          <select id="register-role" v-model="form.role" class="select">
             <option value="user">user</option>
             <option value="agent">agent</option>
           </select>
-        </label>
+        </BaseFormField>
 
         <template v-if="isAgentRole">
-          <label class="form-label">
-            Service Name (`service_name`)
-            <input v-model="form.serviceName" class="input" type="text" placeholder="my-service" required />
-          </label>
+          <BaseFormField id="register-service-name" label="Service Name (`service_name`)" required>
+            <input
+              id="register-service-name"
+              v-model="form.serviceName"
+              class="input"
+              type="text"
+              placeholder="my-service"
+              required
+            />
+          </BaseFormField>
 
-          <label class="form-label">
-            Email
-            <input v-model="form.email" class="input" type="email" placeholder="agent@example.com" required />
-          </label>
+          <BaseFormField id="register-email" label="Email" required>
+            <input
+              id="register-email"
+              v-model="form.email"
+              class="input"
+              type="email"
+              placeholder="agent@example.com"
+              required
+            />
+          </BaseFormField>
         </template>
 
-        <p v-if="error" class="error">{{ error }}</p>
-        <p v-if="success" class="success">{{ success }}</p>
+        <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
+        <p v-if="success" class="success" role="status" aria-live="polite">{{ success }}</p>
 
-        <button type="submit" class="btn btn-primary" :disabled="loading">
+        <button type="submit" class="btn btn-primary" :disabled="loading" :aria-busy="loading ? 'true' : 'false'">
           {{ loading ? 'Сохраняем...' : 'Зарегистрироваться' }}
         </button>
       </form>

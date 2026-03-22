@@ -1,20 +1,14 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { getCurrentUser } from '../lib/api';
 import { clearSession, sessionState, setAgentId } from '../lib/session';
 
 const router = useRouter();
 const route = useRoute();
 
-const draftAgentId = ref(sessionState.agentId || '');
-const saveInfo = ref('');
-
-watch(
-  () => sessionState.agentId,
-  (value) => {
-    draftAgentId.value = value || '';
-  },
-);
+const syncInfo = ref('');
+const syncingProfile = ref(false);
 
 const claims = computed(() => sessionState.claims || {});
 const isAgentRole = computed(() => claims.value.role === 'agent');
@@ -30,15 +24,36 @@ const tabs = computed(() => {
     ];
   }
 
-  return [{ name: 'dashboard-tokens', to: '/dashboard/tokens', label: 'My Tokens' }];
+  return [
+    { name: 'dashboard-user-profile', to: '/dashboard/profile', label: 'My Profile' },
+    { name: 'dashboard-tokens', to: '/dashboard/tokens', label: 'My Tokens' },
+  ];
 });
 
-function persistAgentId() {
-  setAgentId(draftAgentId.value);
-  saveInfo.value = 'Agent ID сохранен.';
-  setTimeout(() => {
-    saveInfo.value = '';
-  }, 1400);
+async function syncAgentProfile() {
+  if (!isAgentRole.value || !sessionState.token) {
+    return;
+  }
+
+  syncingProfile.value = true;
+  syncInfo.value = '';
+
+  try {
+    const me = await getCurrentUser(sessionState.token);
+    const profileAgentId = me?.agent_id || me?.agentId || '';
+
+    if (profileAgentId) {
+      setAgentId(profileAgentId);
+      syncInfo.value = 'agent_id загружен из профиля.';
+      return;
+    }
+
+    syncInfo.value = 'agent_id не найден в профиле.';
+  } catch (error) {
+    syncInfo.value = 'Не удалось загрузить agent_id из профиля.';
+  } finally {
+    syncingProfile.value = false;
+  }
 }
 
 async function logout() {
@@ -49,6 +64,12 @@ async function logout() {
 function isActive(tabName) {
   return route.name === tabName;
 }
+
+onMounted(() => {
+  if (isAgentRole.value && !sessionState.agentId) {
+    syncAgentProfile();
+  }
+});
 </script>
 
 <template>
@@ -82,19 +103,17 @@ function isActive(tabName) {
         <div v-if="isAgentRole" class="card">
           <h3>Agent Context</h3>
           <p class="subtitle">
-            Для `SMS Logs` и `Billing` нужен `agent_id` (UUID агента в бэкенде).
+            `agent_id` автоматически берется из `GET /api/v1/me`.
           </p>
 
-          <label class="form-label">
-            agent_id
-            <input v-model="draftAgentId" class="input mono" type="text" placeholder="uuid" />
-          </label>
-
           <p class="subtitle mono">user_id: {{ claims.userId || '-' }}</p>
+          <p class="subtitle mono">agent_id: {{ sessionState.agentId || 'не найден' }}</p>
 
           <div class="side-actions">
-            <button type="button" class="btn btn-secondary" @click="persistAgentId">Сохранить</button>
-            <p v-if="saveInfo" class="success">{{ saveInfo }}</p>
+            <button type="button" class="btn btn-secondary" :disabled="syncingProfile" @click="syncAgentProfile">
+              {{ syncingProfile ? 'Обновляем...' : 'Обновить из профиля' }}
+            </button>
+            <p v-if="syncInfo" :class="sessionState.agentId ? 'success' : 'error'">{{ syncInfo }}</p>
           </div>
         </div>
       </aside>

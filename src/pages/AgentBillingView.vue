@@ -8,16 +8,21 @@ const loadingTopUp = ref(false);
 const error = ref('');
 const success = ref('');
 const balance = ref(null);
+const balanceReadUnsupported = ref(false);
 const amount = ref('10');
 
 async function refreshBalance() {
+  if (balanceReadUnsupported.value) {
+    return;
+  }
+
   if (!sessionState.token) {
     error.value = 'Сессия не найдена. Выполните вход заново.';
     return;
   }
 
   if (!sessionState.agentId) {
-    error.value = 'Укажите agent_id в левом блоке Agent Context.';
+    error.value = 'agent_id не найден в профиле. Выполните вход заново или обновите профиль в Agent Context.';
     return;
   }
 
@@ -29,6 +34,13 @@ async function refreshBalance() {
     const value = Number(payload?.balance ?? payload?.Balance ?? 0);
     balance.value = Number.isFinite(value) ? value : 0;
   } catch (requestError) {
+    if (requestError?.status === 404 || requestError?.status === 405) {
+      balanceReadUnsupported.value = true;
+      error.value = '';
+      success.value = 'Чтение баланса недоступно на текущем backend. Пополнение работает.';
+      balance.value = null;
+      return;
+    }
     error.value = requestError?.message || 'Не удалось загрузить баланс';
   } finally {
     loadingBalance.value = false;
@@ -42,7 +54,7 @@ async function startTopUp() {
   }
 
   if (!sessionState.agentId) {
-    error.value = 'Укажите agent_id в левом блоке Agent Context.';
+    error.value = 'agent_id не найден в профиле. Выполните вход заново или обновите профиль в Agent Context.';
     return;
   }
 
@@ -90,7 +102,7 @@ onMounted(() => {
         <div>
           <h3>Billing</h3>
           <p class="subtitle">
-            Баланс и пополнение через Stripe Checkout (`POST/GET /api/v1/billing/balance`).
+            Баланс и пополнение через Stripe Checkout (`GET /api/v1/billing/{agent_id}/balance`, `POST /api/v1/billing/balance`).
           </p>
         </div>
 
@@ -98,10 +110,10 @@ onMounted(() => {
           <button
             type="button"
             class="btn btn-secondary"
-            :disabled="loadingBalance"
+            :disabled="loadingBalance || balanceReadUnsupported"
             @click="refreshBalance"
           >
-            {{ loadingBalance ? 'Обновляем...' : 'Обновить баланс' }}
+            {{ loadingBalance ? 'Обновляем...' : balanceReadUnsupported ? 'Недоступно' : 'Обновить баланс' }}
           </button>
         </div>
       </div>
@@ -110,6 +122,9 @@ onMounted(() => {
         <p class="subtitle">Текущий баланс</p>
         <p class="balance-value">
           {{ balance === null ? '—' : `${balance.toFixed(2)} USD` }}
+        </p>
+        <p v-if="balanceReadUnsupported" class="subtitle billing-note">
+          Текущий backend не отдает endpoint чтения баланса. Можно пополнять баланс через Stripe.
         </p>
       </div>
 

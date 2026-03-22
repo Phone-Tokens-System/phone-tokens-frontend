@@ -1,5 +1,10 @@
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import BaseDataTable from '../components/base/BaseDataTable.vue';
+import BaseFormField from '../components/base/BaseFormField.vue';
+import BaseModal from '../components/base/BaseModal.vue';
+import BaseStatusChip from '../components/base/BaseStatusChip.vue';
 import {
   createUserToken,
   deleteUserToken,
@@ -11,6 +16,7 @@ import {
 import { sessionState } from '../lib/session';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+const route = useRoute();
 
 const loading = ref(false);
 const creating = ref(false);
@@ -18,6 +24,8 @@ const actionKey = ref('');
 const error = ref('');
 const success = ref('');
 const tokens = ref([]);
+const deleteModalOpen = ref(false);
+const deleteTarget = ref(null);
 
 const createForm = reactive({
   name: '',
@@ -29,6 +37,14 @@ const createForm = reactive({
 
 const ttlDraftById = reactive({});
 
+const deleteModalDescription = computed(() => {
+  if (!deleteTarget.value) {
+    return 'Подтвердите удаление.';
+  }
+
+  return `Токен "${deleteTarget.value.name || deleteTarget.value.id}" будет удален без возможности восстановления.`;
+});
+
 watch(
   () => sessionState.agentId,
   (value) => {
@@ -36,6 +52,31 @@ watch(
       createForm.agentId = value || '';
     }
   },
+);
+
+function normalizeQueryValue(value) {
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0].trim() : '';
+  }
+
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function syncAgentIdFromQuery(value) {
+  const queryAgentId = normalizeQueryValue(value);
+  if (!queryAgentId) {
+    return;
+  }
+
+  createForm.agentId = queryAgentId;
+}
+
+watch(
+  () => route.query.agent_id,
+  (value) => {
+    syncAgentIdFromQuery(value);
+  },
+  { immediate: true },
 );
 
 function setSuccess(message) {
@@ -83,9 +124,9 @@ function tokenStatusLabel(value) {
 
 function tokenStatusTone(value) {
   const normalized = String(value || '').toLowerCase();
-  if (normalized === 'active') return 'status-chip--ok';
-  if (normalized === 'frozen') return 'status-chip--warn';
-  return 'status-chip--neutral';
+  if (normalized === 'active') return 'ok';
+  if (normalized === 'frozen') return 'warn';
+  return 'neutral';
 }
 
 function isFrozenStatus(value) {
@@ -218,12 +259,24 @@ async function toggleStatus(item) {
   }
 }
 
-async function removeToken(item) {
-  if (!sessionState.token) return;
+function openDeleteModal(item) {
+  deleteTarget.value = item;
+  deleteModalOpen.value = true;
+}
 
-  const confirmed = window.confirm(`Удалить токен "${item.name || item.id}"?`);
-  if (!confirmed) return;
+function closeDeleteModal() {
+  if (isActionLoading('delete', deleteTarget.value?.id || '')) {
+    return;
+  }
 
+  deleteModalOpen.value = false;
+  deleteTarget.value = null;
+}
+
+async function confirmDeleteToken() {
+  if (!sessionState.token || !deleteTarget.value) return;
+
+  const item = deleteTarget.value;
   actionKey.value = `delete:${item.id}`;
   error.value = '';
   success.value = '';
@@ -232,8 +285,24 @@ async function removeToken(item) {
     await deleteUserToken(sessionState.token, item.id);
     setSuccess(`Токен "${item.name || item.id}" удален.`);
     await fetchTokens();
+    closeDeleteModal();
   } catch (requestError) {
     error.value = requestError?.message || 'Не удалось удалить токен';
+  } finally {
+    actionKey.value = '';
+  }
+}
+
+async function refreshTokenRow(item) {
+  if (!sessionState.token) return;
+
+  actionKey.value = `refresh:${item.id}`;
+  error.value = '';
+  success.value = '';
+
+  try {
+    await fetchTokens();
+    setSuccess(`Данные токена "${item.name || item.id}" обновлены.`);
   } finally {
     actionKey.value = '';
   }
@@ -260,24 +329,27 @@ onMounted(() => {
       <h3>Создать токен</h3>
       <p class="subtitle">Создание через `POST /api/v1/tokens`.</p>
 
-      <form class="form" @submit.prevent="createToken">
-        <label class="form-label">
-          Название токена
-          <input v-model="createForm.name" class="input" type="text" placeholder="default token" />
-        </label>
+      <form class="form" aria-label="Форма создания токена" @submit.prevent="createToken">
+        <BaseFormField id="token-name" label="Название токена">
+          <input id="token-name" v-model="createForm.name" class="input" type="text" placeholder="default token" />
+        </BaseFormField>
 
-        <label class="form-label">
-          agent_id
-          <input v-model="createForm.agentId" class="input mono" type="text" placeholder="uuid (optional)" />
-        </label>
+        <BaseFormField id="token-agent-id" label="agent_id">
+          <input
+            id="token-agent-id"
+            v-model="createForm.agentId"
+            class="input mono"
+            type="text"
+            placeholder="uuid (optional)"
+          />
+        </BaseFormField>
 
-        <label class="form-label">
-          TTL (секунды)
-          <input v-model="createForm.ttlSeconds" class="input" type="number" min="1" step="1" required />
-        </label>
+        <BaseFormField id="token-ttl" label="TTL (секунды)" required>
+          <input id="token-ttl" v-model="createForm.ttlSeconds" class="input" type="number" min="1" step="1" required />
+        </BaseFormField>
 
-        <div class="permissions">
-          <span class="form-label">Permissions</span>
+        <fieldset class="permissions">
+          <legend class="form-label">Permissions</legend>
           <label class="permission-item">
             <input v-model="createForm.sms" type="checkbox" />
             sms
@@ -286,9 +358,9 @@ onMounted(() => {
             <input v-model="createForm.calls" type="checkbox" />
             calls
           </label>
-        </div>
+        </fieldset>
 
-        <button type="submit" class="btn btn-primary" :disabled="creating">
+        <button type="submit" class="btn btn-primary" :disabled="creating" :aria-busy="creating ? 'true' : 'false'">
           {{ creating ? 'Создаем...' : 'Создать токен' }}
         </button>
       </form>
@@ -309,85 +381,121 @@ onMounted(() => {
         </div>
       </div>
 
-      <p v-if="error" class="error">{{ error }}</p>
-      <p v-if="success" class="success">{{ success }}</p>
+      <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
+      <p v-if="success" class="success" role="status" aria-live="polite">{{ success }}</p>
 
-      <div v-if="tokens.length" class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Token</th>
-              <th>Permissions</th>
-              <th>Status</th>
-              <th>Expires</th>
-              <th>Agent ID</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="token in tokens" :key="token.id">
-              <td>{{ token.name || '-' }}</td>
-              <td class="mono">{{ maskToken(token.token) }}</td>
-              <td>{{ Array.isArray(token.permissions) ? token.permissions.join(', ') : '-' }}</td>
-              <td>
-                <span class="status-chip" :class="tokenStatusTone(token.status)">
-                  {{ tokenStatusLabel(token.status) }}
-                </span>
-              </td>
-              <td class="mono">{{ token.expires_at || '-' }}</td>
-              <td class="mono">{{ token.agent_id || '-' }}</td>
-              <td>
-                <div class="row-actions">
-                  <button type="button" class="btn btn-secondary btn-small" @click="copyToken(token)">
-                    Copy
-                  </button>
+      <BaseDataTable
+        v-if="tokens.length"
+        caption="Список токенов пользователя"
+        aria-label="Список токенов пользователя"
+        :min-width="920"
+      >
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Token</th>
+            <th scope="col">Permissions</th>
+            <th scope="col">Status</th>
+            <th scope="col">Expires</th>
+            <th scope="col">Agent ID</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="token in tokens" :key="token.id">
+            <td>{{ token.name || '-' }}</td>
+            <td class="mono">{{ maskToken(token.token) }}</td>
+            <td>{{ Array.isArray(token.permissions) ? token.permissions.join(', ') : '-' }}</td>
+            <td>
+              <BaseStatusChip
+                :label="tokenStatusLabel(token.status)"
+                :tone="tokenStatusTone(token.status)"
+                :aria-label="`Token status: ${tokenStatusLabel(token.status)}`"
+              />
+            </td>
+            <td class="mono">{{ token.expires_at || '-' }}</td>
+            <td class="mono">{{ token.agent_id || '-' }}</td>
+            <td>
+              <div class="row-actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-small"
+                  :aria-label="`Copy token ${token.name || token.id}`"
+                  @click="copyToken(token)"
+                >
+                  Copy
+                </button>
 
-                  <div class="ttl-inline">
-                    <input
-                      v-model="ttlDraftById[token.id]"
-                      class="input input-inline"
-                      type="number"
-                      min="1"
-                      step="1"
-                    />
-                    <button
-                      type="button"
-                      class="btn btn-secondary btn-small"
-                      :disabled="isActionLoading('ttl', token.id)"
-                      @click="updateTTL(token)"
-                    >
-                      {{ isActionLoading('ttl', token.id) ? '...' : 'TTL' }}
-                    </button>
-                  </div>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-small"
+                  :disabled="isActionLoading('refresh', token.id)"
+                  :aria-label="`Refresh token ${token.name || token.id}`"
+                  @click="refreshTokenRow(token)"
+                >
+                  {{ isActionLoading('refresh', token.id) ? '...' : 'Refresh' }}
+                </button>
 
+                <div class="ttl-inline">
+                  <input
+                    v-model="ttlDraftById[token.id]"
+                    class="input input-inline"
+                    type="number"
+                    min="1"
+                    step="1"
+                    :aria-label="`New TTL for token ${token.name || token.id}`"
+                  />
                   <button
                     type="button"
                     class="btn btn-secondary btn-small"
-                    :disabled="isActionLoading('status', token.id)"
-                    @click="toggleStatus(token)"
+                    :disabled="isActionLoading('ttl', token.id)"
+                    :aria-label="`Update TTL for token ${token.name || token.id}`"
+                    @click="updateTTL(token)"
                   >
-                    {{ isActionLoading('status', token.id) ? '...' : isFrozenStatus(token.status) ? 'Unfreeze' : 'Freeze' }}
-                  </button>
-
-                  <button
-                    type="button"
-                    class="btn btn-danger btn-small"
-                    :disabled="isActionLoading('delete', token.id)"
-                    @click="removeToken(token)"
-                  >
-                    {{ isActionLoading('delete', token.id) ? '...' : 'Delete' }}
+                    {{ isActionLoading('ttl', token.id) ? '...' : 'TTL' }}
                   </button>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-small"
+                  :disabled="isActionLoading('status', token.id)"
+                  :aria-label="`${isFrozenStatus(token.status) ? 'Unfreeze' : 'Freeze'} token ${token.name || token.id}`"
+                  @click="toggleStatus(token)"
+                >
+                  {{ isActionLoading('status', token.id) ? '...' : isFrozenStatus(token.status) ? 'Unfreeze' : 'Freeze' }}
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-danger btn-small"
+                  :disabled="isActionLoading('delete', token.id)"
+                  :aria-label="`Delete token ${token.name || token.id}`"
+                  @click="openDeleteModal(token)"
+                >
+                  {{ isActionLoading('delete', token.id) ? '...' : 'Delete' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </BaseDataTable>
 
       <p v-else-if="!loading" class="subtitle empty-state">
         Токенов пока нет.
       </p>
+
+      <BaseModal
+        v-model="deleteModalOpen"
+        title="Удаление токена"
+        :description="deleteModalDescription"
+        confirm-label="Удалить"
+        cancel-label="Отмена"
+        :danger="true"
+        :busy="isActionLoading('delete', deleteTarget?.id || '')"
+        @confirm="confirmDeleteToken"
+        @cancel="closeDeleteModal"
+      />
     </article>
   </section>
 </template>
@@ -398,6 +506,9 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 10px 14px;
   align-items: center;
+  margin: 0;
+  border: 0;
+  padding: 0;
 }
 
 .permission-item {
@@ -411,7 +522,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  min-width: 260px;
+  min-width: 360px;
 }
 
 .ttl-inline {
