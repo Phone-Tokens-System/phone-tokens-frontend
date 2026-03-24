@@ -19,7 +19,7 @@ const tabs = computed(() => {
   if (isAgentRole.value) {
     return [
       { name: 'dashboard-certificates', to: '/dashboard/certificates', label: 'Certificates' },
-      { name: 'dashboard-sms', to: '/dashboard/sms', label: 'SMS Logs' },
+      { name: 'dashboard-sms', to: '/dashboard/sms', label: 'SMS' },
       { name: 'dashboard-billing', to: '/dashboard/billing', label: 'Billing' },
     ];
   }
@@ -102,9 +102,6 @@ onMounted(() => {
 
         <div v-if="isAgentRole" class="card">
           <h3>Agent Context</h3>
-          <p class="subtitle">
-            `agent_id` автоматически берется из `GET /api/v1/me`.
-          </p>
 
           <p class="subtitle mono">user_id: {{ claims.userId || '-' }}</p>
           <p class="subtitle mono">agent_id: {{ sessionState.agentId || 'не найден' }}</p>

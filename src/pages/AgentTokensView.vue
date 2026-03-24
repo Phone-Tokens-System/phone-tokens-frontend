@@ -327,7 +327,6 @@ onMounted(() => {
   <section class="card-grid">
     <article class="card">
       <h3>Создать токен</h3>
-      <p class="subtitle">Создание через `POST /api/v1/tokens`.</p>
 
       <form class="form" aria-label="Форма создания токена" @submit.prevent="createToken">
         <BaseFormField id="token-name" label="Название токена">

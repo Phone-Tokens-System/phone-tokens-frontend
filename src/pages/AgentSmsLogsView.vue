@@ -368,7 +368,7 @@ async function fetchSmsLogs() {
     const payload = await getSmsLogsByAgent(sessionState.token, sessionState.agentId);
     smsLogs.value = normalizeSmsList(payload);
   } catch (requestError) {
-    loadError.value = requestError?.message || 'Не удалось загрузить SMS logs';
+    loadError.value = requestError?.message || 'Не удалось загрузить SMS';
   } finally {
     loading.value = false;
   }
@@ -724,7 +724,6 @@ onMounted(async () => {
   <section class="card-grid">
     <article class="card">
       <h3>Отправить SMS</h3>
-      <p class="subtitle">Форма для `POST /api/v1/sms/send`.</p>
 
       <form class="form" aria-label="Форма отправки SMS" @submit.prevent="submitSms">
         <BaseFormField id="sms-service-name" label="service_name">
@@ -767,7 +766,6 @@ onMounted(async () => {
 
     <article class="card">
       <h3>Отправить SMS по фильтрам</h3>
-      <p class="subtitle">Форма для `POST /api/v1/sms/send_filtered`.</p>
       <p v-if="loadingFilterConfig" class="subtitle">Загружаем конфигурацию фильтров...</p>
 
       <form class="form" aria-label="Форма отправки SMS по фильтрам" @submit.prevent="submitFilteredSms">
@@ -878,8 +876,7 @@ onMounted(async () => {
     <article class="card">
       <div class="section-head">
         <div>
-          <h3>SMS Logs</h3>
-          <p class="subtitle">Запрос к `GET /api/v1/sms/agents/{agentID}`.</p>
+          <h3>SMS</h3>
           <p class="subtitle">Показано: {{ filteredSmsLogs.length }} из {{ smsLogs.length }}</p>
         </div>
 
@@ -931,8 +928,8 @@ onMounted(async () => {
 
       <BaseDataTable
         v-if="filteredSmsLogs.length"
-        caption="SMS logs с фильтрами"
-        aria-label="SMS logs с фильтрами"
+        caption="SMS с фильтрами"
+        aria-label="SMS с фильтрами"
         :min-width="860"
       >
         <thead>

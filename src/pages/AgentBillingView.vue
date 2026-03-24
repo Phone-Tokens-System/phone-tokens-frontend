@@ -1,7 +1,11 @@
 <script setup>
 import { onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { createBalanceTopUp, getBalance } from '../lib/api';
 import { sessionState } from '../lib/session';
+
+const route = useRoute();
+const router = useRouter();
 
 const loadingBalance = ref(false);
 const loadingTopUp = ref(false);
@@ -37,7 +41,7 @@ async function refreshBalance() {
     if (requestError?.status === 404 || requestError?.status === 405) {
       balanceReadUnsupported.value = true;
       error.value = '';
-      success.value = 'Чтение баланса недоступно на текущем backend. Пополнение работает.';
+      success.value = 'Чтение баланса сейчас недоступно. Пополнение работает.';
       balance.value = null;
       return;
     }
@@ -88,9 +92,25 @@ async function startTopUp() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  const fromSuccess = route.query.payment === 'success';
+
   if (sessionState.agentId) {
-    refreshBalance();
+    await refreshBalance();
+    if (fromSuccess) {
+      setTimeout(() => {
+        refreshBalance();
+      }, 1500);
+    }
+  }
+
+  if (fromSuccess) {
+    success.value = 'Платеж успешно завершен.';
+    const cleanedQuery = { ...route.query };
+    delete cleanedQuery.payment;
+    delete cleanedQuery.agent;
+    delete cleanedQuery.amount;
+    router.replace({ path: route.path, query: cleanedQuery });
   }
 });
 </script>
@@ -101,9 +121,6 @@ onMounted(() => {
       <div class="section-head">
         <div>
           <h3>Billing</h3>
-          <p class="subtitle">
-            Баланс и пополнение через Stripe Checkout (`GET /api/v1/billing/{agent_id}/balance`, `POST /api/v1/billing/balance`).
-          </p>
         </div>
 
         <div class="section-actions">
@@ -141,10 +158,6 @@ onMounted(() => {
 
       <p v-if="error" class="error">{{ error }}</p>
       <p v-if="success" class="success">{{ success }}</p>
-
-      <p class="subtitle billing-note">
-        После оплаты Stripe отправляет webhook на бэкенд. Для UI успешного завершения используйте маршрут `/success`.
-      </p>
     </article>
   </section>
 </template>

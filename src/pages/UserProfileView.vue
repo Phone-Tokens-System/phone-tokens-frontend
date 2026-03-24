@@ -615,7 +615,6 @@ onMounted(async () => {
       <div class="section-head">
         <div>
           <h3>User Profile</h3>
-          <p class="subtitle">Создание/редактирование через `POST /api/v1/user-profile`.</p>
           <p class="subtitle mono">user_id из JWT: {{ sessionState.claims?.userId || '-' }}</p>
           <p class="subtitle">Статус: {{ profileExists ? 'профиль существует' : 'новый профиль' }}</p>
         </div>
@@ -715,7 +714,6 @@ onMounted(async () => {
 
     <article class="card">
       <h3>Текущие данные</h3>
-      <p class="subtitle">Последние данные, полученные с `GET /api/v1/user-profile/me`.</p>
 
       <dl class="kv-grid">
         <dt>birth_date</dt>

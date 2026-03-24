@@ -153,9 +153,6 @@ onMounted(() => {
   <section class="card-grid">
     <article class="card">
       <h3>Новый CSR request</h3>
-      <p class="subtitle">
-        Отправка в `POST /api/v1/csr`. Если этот маршрут не активен, используется fallback на upload endpoint.
-      </p>
 
       <form class="form" @submit.prevent="submitCsr">
         <label class="form-label">
@@ -176,7 +173,6 @@ onMounted(() => {
 
     <article class="card">
       <h3>Получить подписанный сертификат</h3>
-      <p class="subtitle">Запрос: `GET /api/v1/csr/{id}` (с fallback на `/api/v1/csr/signed?id=`).</p>
 
       <form class="form" @submit.prevent="fetchCertificate">
         <label class="form-label">
