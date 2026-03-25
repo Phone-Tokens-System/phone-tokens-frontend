@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import { register } from '../lib/api';
+import { normalizeRuPhone } from '../lib/phone';
 
 const router = useRouter();
 
@@ -28,6 +29,12 @@ async function submitForm() {
   error.value = '';
   success.value = '';
 
+  const normalizedPhone = normalizeRuPhone(form.phone);
+  if (!normalizedPhone) {
+    error.value = 'Введите российский номер в формате +7XXXXXXXXXX.';
+    return;
+  }
+
   if (isAgentRole.value) {
     if (!form.serviceName.trim() || !form.email.trim()) {
       error.value = 'Для роли agent обязательны поля service_name и email.';
@@ -39,7 +46,7 @@ async function submitForm() {
 
   try {
     await register({
-      phone: form.phone.trim(),
+      phone: normalizedPhone,
       password: form.password,
       role: form.role,
       service_name: form.serviceName.trim(),
@@ -70,7 +77,16 @@ async function submitForm() {
 
       <form class="form" aria-label="Форма регистрации" @submit.prevent="submitForm">
         <BaseFormField id="register-phone" label="Телефон" required>
-          <input id="register-phone" v-model="form.phone" class="input" type="text" placeholder="79991234567" required />
+          <input
+            id="register-phone"
+            v-model="form.phone"
+            class="input"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            placeholder="+7 999 123-45-67"
+            required
+          />
         </BaseFormField>
 
         <BaseFormField id="register-password" label="Пароль" required>

@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import { getCurrentUser, login } from '../lib/api';
+import { normalizeRuPhone } from '../lib/phone';
 import { clearSession, sessionState, setAgentId, setToken } from '../lib/session';
 
 const router = useRouter();
@@ -22,12 +23,19 @@ async function submitForm() {
     return;
   }
 
-  loading.value = true;
   error.value = '';
+
+  const normalizedPhone = normalizeRuPhone(form.phone);
+  if (!normalizedPhone) {
+    error.value = 'Введите российский номер в формате +7XXXXXXXXXX.';
+    return;
+  }
+
+  loading.value = true;
 
   try {
     const result = await login({
-      phone: form.phone.trim(),
+      phone: normalizedPhone,
       password: form.password,
     });
 
@@ -84,7 +92,16 @@ async function submitForm() {
         </BaseFormField>
 
         <BaseFormField id="login-phone" label="Телефон" required>
-          <input id="login-phone" v-model="form.phone" class="input" type="text" placeholder="79991234567" required />
+          <input
+            id="login-phone"
+            v-model="form.phone"
+            class="input"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            placeholder="+7 999 123-45-67"
+            required
+          />
         </BaseFormField>
 
         <BaseFormField id="login-password" label="Пароль" required>
