@@ -138,7 +138,7 @@ onMounted(async () => {
       <div class="card">
         <p class="subtitle">Текущий баланс</p>
         <p class="balance-value">
-          {{ balance === null ? '—' : `${balance.toFixed(2)} USD` }}
+          {{ balance === null ? '—' : `${balance.toFixed(2)} RUB` }}
         </p>
         <p v-if="balanceReadUnsupported" class="subtitle billing-note">
           Текущий backend не отдает endpoint чтения баланса. Можно пополнять баланс через Stripe.
@@ -147,7 +147,7 @@ onMounted(async () => {
 
       <form class="form" @submit.prevent="startTopUp">
         <label class="form-label">
-          Сумма пополнения (USD)
+          Сумма пополнения (RUB)
           <input v-model="amount" class="input" type="number" min="1" step="0.01" />
         </label>
 
