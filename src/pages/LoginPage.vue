@@ -66,7 +66,9 @@ async function submitForm() {
         ? route.query.redirect
         : role === 'agent'
           ? '/dashboard/certificates'
-          : '/dashboard/profile';
+          : role === 'admin'
+            ? '/dashboard/admin/csr'
+            : '/dashboard/profile';
 
     await router.push(redirect);
   } catch (requestError) {
@@ -88,6 +90,7 @@ async function submitForm() {
           <select id="login-role" v-model="form.role" class="select">
             <option value="agent">agent</option>
             <option value="user">user</option>
+            <option value="admin">admin</option>
           </select>
         </BaseFormField>
 

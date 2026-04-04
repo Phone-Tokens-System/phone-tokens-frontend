@@ -12,10 +12,22 @@ const syncingProfile = ref(false);
 
 const claims = computed(() => sessionState.claims || {});
 const isAgentRole = computed(() => claims.value.role === 'agent');
+const isAdminRole = computed(() => claims.value.role === 'admin');
 const dashboardTitle = computed(() =>
-  isAgentRole.value ? 'Личный кабинет агента' : 'Личный кабинет пользователя',
+  isAgentRole.value
+    ? 'Личный кабинет агента'
+    : isAdminRole.value
+      ? 'Админ-панель'
+      : 'Личный кабинет пользователя',
 );
 const tabs = computed(() => {
+  if (isAdminRole.value) {
+    return [
+      { name: 'dashboard-admin-csr', to: '/dashboard/admin/csr', label: 'CSR' },
+      { name: 'dashboard-admin-sms', to: '/dashboard/admin/sms', label: 'SMS Monitor' },
+    ];
+  }
+
   if (isAgentRole.value) {
     return [
       { name: 'dashboard-certificates', to: '/dashboard/certificates', label: 'Certificates' },

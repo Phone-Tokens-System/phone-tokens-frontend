@@ -150,6 +150,40 @@ export async function getSignedCertificate(token, csrId) {
   );
 }
 
+export async function getAdminPing(token) {
+  return request('/api/v1/admin/ping', { token });
+}
+
+export async function getAdminCsrRequests(token) {
+  return request('/api/v1/admin/csr', { token });
+}
+
+export async function approveAdminCsrRequest(token, csrId) {
+  const normalizedId = String(csrId || '').trim();
+  if (!normalizedId) {
+    throw new ApiError('csr_id is required', 400, null);
+  }
+
+  return requestWithFallback(
+    [
+      `/api/v1/admin/csr/approve/${encodeURIComponent(normalizedId)}?id=${encodeURIComponent(normalizedId)}`,
+      `/api/v1/admin/csr/approve/${encodeURIComponent(normalizedId)}`,
+    ],
+    {
+      method: 'POST',
+      token,
+    },
+  );
+}
+
+export async function getAdminSmsLogs(token) {
+  return request('/api/v1/sms/logs', { token });
+}
+
+export async function refreshAdminSmsFromProvider(token) {
+  return request('/api/v1/sms/all', { token });
+}
+
 export async function getSmsLogsByAgent(token, agentId) {
   return request(`/api/v1/sms/agents/${encodeURIComponent(agentId)}`, { token });
 }

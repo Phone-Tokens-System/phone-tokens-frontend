@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { isAuthenticated, sessionState } from '../lib/session';
+import AdminCsrView from '../pages/AdminCsrView.vue';
+import AdminSmsView from '../pages/AdminSmsView.vue';
 import AgentBillingView from '../pages/AgentBillingView.vue';
 import AgentCertificatesView from '../pages/AgentCertificatesView.vue';
 import AgentDashboardPage from '../pages/AgentDashboardPage.vue';
@@ -11,6 +13,12 @@ import LoginPage from '../pages/LoginPage.vue';
 import NotFoundPage from '../pages/NotFoundPage.vue';
 import RegisterPage from '../pages/RegisterPage.vue';
 import UserProfileView from '../pages/UserProfileView.vue';
+
+function dashboardPathByRole(role) {
+  if (role === 'agent') return '/dashboard/certificates';
+  if (role === 'admin') return '/dashboard/admin/csr';
+  return '/dashboard/profile';
+}
 
 const routes = [
   {
@@ -36,7 +44,7 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: () => (sessionState.claims?.role === 'agent' ? '/dashboard/certificates' : '/dashboard/profile'),
+        redirect: () => dashboardPathByRole(sessionState.claims?.role),
       },
       {
         path: 'certificates',
@@ -68,6 +76,18 @@ const routes = [
         component: AgentTokensView,
         meta: { requiresUser: true },
       },
+      {
+        path: 'admin/csr',
+        name: 'dashboard-admin-csr',
+        component: AdminCsrView,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'admin/sms',
+        name: 'dashboard-admin-sms',
+        component: AdminSmsView,
+        meta: { requiresAdmin: true },
+      },
     ],
   },
   {
@@ -93,8 +113,10 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
+  const role = sessionState.claims?.role;
+
   if (to.meta.guestOnly && isAuthenticated.value) {
-    return sessionState.claims?.role === 'agent' ? '/dashboard/certificates' : '/dashboard/profile';
+    return dashboardPathByRole(role);
   }
 
   if (to.meta.requiresAuth && !isAuthenticated.value) {
@@ -105,11 +127,15 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requiresAgent && sessionState.claims?.role !== 'agent') {
-    return '/dashboard/profile';
+    return dashboardPathByRole(role);
   }
 
   if (to.meta.requiresUser && sessionState.claims?.role !== 'user') {
-    return '/dashboard/certificates';
+    return dashboardPathByRole(role);
+  }
+
+  if (to.meta.requiresAdmin && sessionState.claims?.role !== 'admin') {
+    return dashboardPathByRole(role);
   }
 
   return true;
