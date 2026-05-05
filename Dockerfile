@@ -1,12 +1,9 @@
 # Stage 1: Build the application with Node.js
-FROM node:18-alpine AS builder
+FROM node:18-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build   # Creates optimized static assets in /app/build
 
-# Stage 2: Serve the application with a tiny Nginx image
-FROM scratch
-COPY --from=builder /app/dist /dist
-CMD ["echo", "Build completed, container done"]
+CMD ["sh", "-c", "cp -r /app/dist/* /dist && echo Build completed"]
