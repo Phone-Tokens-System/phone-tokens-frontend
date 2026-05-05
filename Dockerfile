@@ -9,3 +9,4 @@ RUN npm run build   # Creates optimized static assets in /app/build
 # Stage 2: Serve the application with a tiny Nginx image
 FROM scratch
 COPY --from=builder /app/dist /dist
+CMD ["echo", "Build completed, container done"]
