@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import SensitiveValue from '../components/base/SensitiveValue.vue';
 import { getCurrentUser } from '../lib/api';
 import { clearSession, sessionState, setAgentId } from '../lib/session';
 
@@ -115,8 +116,14 @@ onMounted(() => {
         <div v-if="isAgentRole" class="card">
           <h3>Agent Context</h3>
 
-          <p class="subtitle mono">user_id: {{ claims.userId || '-' }}</p>
-          <p class="subtitle mono">agent_id: {{ sessionState.agentId || 'не найден' }}</p>
+          <p class="subtitle">
+            user_id:
+            <SensitiveValue :value="claims.userId" label="user_id" copy-label="Copy full dashboard user_id" />
+          </p>
+          <p class="subtitle">
+            agent_id:
+            <SensitiveValue :value="sessionState.agentId" label="agent_id" copy-label="Copy full dashboard agent_id" empty-label="не найден" />
+          </p>
 
           <div class="side-actions">
             <button type="button" class="btn btn-secondary" :disabled="syncingProfile" @click="syncAgentProfile">

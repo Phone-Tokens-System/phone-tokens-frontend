@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import BaseDataTable from '../components/base/BaseDataTable.vue';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import BaseStatusChip from '../components/base/BaseStatusChip.vue';
+import SensitiveValue from '../components/base/SensitiveValue.vue';
 import {
   getAgentUserProfilesFiltered,
   getDictionaryCities,
@@ -13,6 +14,7 @@ import {
   sendSms,
   sendSmsFiltered,
 } from '../lib/api';
+import { readAgentCertificates } from '../lib/agentCertificates';
 import { sessionState } from '../lib/session';
 
 const loading = ref(false);
@@ -28,6 +30,7 @@ const sendSuccess = ref('');
 const filteredSendError = ref('');
 const filteredSendSuccess = ref('');
 const smsLogs = ref([]);
+const certificateOptions = ref([]);
 
 const countryOptions = ref([]);
 const regionOptions = ref([]);
@@ -45,6 +48,7 @@ const filterDefinitions = ref([...FALLBACK_FILTER_DEFINITIONS]);
 
 const sendForm = reactive({
   serviceName: '',
+  certificateChoice: '',
   certificate: '',
   clientToken: '',
   text: '',
@@ -52,6 +56,7 @@ const sendForm = reactive({
 
 const filteredSendForm = reactive({
   serviceName: '',
+  certificateChoice: '',
   certificate: '',
   text: '',
   gender: '',
@@ -78,6 +83,8 @@ const statusFilterOptions = [
   { value: '2', label: 'Not Delivered' },
   { value: '6', label: 'Rejected' },
 ];
+
+const MANUAL_CERTIFICATE_VALUE = '__manual_certificate__';
 
 function normalizeSmsList(payload) {
   if (Array.isArray(payload)) {
@@ -205,6 +212,36 @@ function countSentSms(payload) {
   }
 
   return 0;
+}
+
+function loadCertificateOptions() {
+  certificateOptions.value = readAgentCertificates(sessionState.agentId);
+  const firstCertificate = certificateOptions.value[0]?.id || '';
+
+  if (!sendForm.certificateChoice) {
+    sendForm.certificateChoice = firstCertificate || MANUAL_CERTIFICATE_VALUE;
+  }
+
+  if (!filteredSendForm.certificateChoice) {
+    filteredSendForm.certificateChoice = firstCertificate || MANUAL_CERTIFICATE_VALUE;
+  }
+}
+
+function selectedCertificateValue(choice, manualValue) {
+  if (choice === MANUAL_CERTIFICATE_VALUE) {
+    return String(manualValue || '').trim();
+  }
+
+  const selected = certificateOptions.value.find((item) => item.id === choice);
+  return String(selected?.certificate || '').trim();
+}
+
+function sendCertificateValue() {
+  return selectedCertificateValue(sendForm.certificateChoice, sendForm.certificate);
+}
+
+function filteredCertificateValue() {
+  return selectedCertificateValue(filteredSendForm.certificateChoice, filteredSendForm.certificate);
 }
 
 function toTimestamp(value) {
@@ -385,7 +422,8 @@ async function submitSms() {
     return;
   }
 
-  if (!sendForm.certificate.trim()) {
+  const certificate = sendCertificateValue();
+  if (!certificate) {
     sendError.value = 'Укажите certificate.';
     return;
   }
@@ -402,7 +440,7 @@ async function submitSms() {
   try {
     await sendSms(sessionState.token, {
       service_name: sendForm.serviceName.trim(),
-      certificate: sendForm.certificate.trim(),
+      certificate,
       client_token: sendForm.clientToken.trim(),
       text: sendForm.text.trim(),
     });
@@ -582,7 +620,7 @@ async function sendFilteredSmsViaFallback(filtersMap) {
     try {
       await sendSms(sessionState.token, {
         service_name: filteredSendForm.serviceName.trim(),
-        certificate: filteredSendForm.certificate.trim(),
+        certificate: filteredCertificateValue(),
         client_token: userToken,
         text: filteredSendForm.text.trim(),
       });
@@ -613,7 +651,8 @@ async function submitFilteredSms() {
     return;
   }
 
-  if (!filteredSendForm.certificate.trim()) {
+  const certificate = filteredCertificateValue();
+  if (!certificate) {
     filteredSendError.value = 'Укажите certificate.';
     return;
   }
@@ -631,7 +670,7 @@ async function submitFilteredSms() {
     const filtersMap = buildFilteredMap();
     const requestPayload = {
       service_name: filteredSendForm.serviceName.trim(),
-      certificate: filteredSendForm.certificate.trim(),
+      certificate,
       text: filteredSendForm.text.trim(),
       agent_id: sessionState.agentId,
       filters: { filters: filtersMap },
@@ -678,6 +717,7 @@ watch(
   () => sessionState.agentId,
   (value, previous) => {
     if (value && value !== previous) {
+      loadCertificateOptions();
       fetchSmsLogs();
     }
   },
@@ -712,6 +752,7 @@ watch(
 );
 
 onMounted(async () => {
+  loadCertificateOptions();
   await loadFilterDefinitions();
   await loadCountries();
   if (sessionState.agentId) {
@@ -741,9 +782,24 @@ onMounted(async () => {
           />
         </BaseFormField>
 
-        <BaseFormField id="sms-certificate" label="certificate" required>
+        <BaseFormField id="sms-certificate-select" label="certificate" required>
+          <select id="sms-certificate-select" v-model="sendForm.certificateChoice" class="select" required>
+            <option value="">Выберите сертификат</option>
+            <option v-for="item in certificateOptions" :key="item.id" :value="item.id">
+              {{ item.label }}
+            </option>
+            <option :value="MANUAL_CERTIFICATE_VALUE">Ввести вручную</option>
+          </select>
+        </BaseFormField>
+
+        <BaseFormField
+          v-if="sendForm.certificateChoice === MANUAL_CERTIFICATE_VALUE"
+          id="sms-certificate-manual"
+          label="certificate вручную"
+          required
+        >
           <textarea
-            id="sms-certificate"
+            id="sms-certificate-manual"
             v-model="sendForm.certificate"
             class="textarea mono textarea-small"
             placeholder="certificate text"
@@ -844,9 +900,24 @@ onMounted(async () => {
           />
         </BaseFormField>
 
-        <BaseFormField id="sms-filtered-certificate" label="certificate" required>
+        <BaseFormField id="sms-filtered-certificate-select" label="certificate" required>
+          <select id="sms-filtered-certificate-select" v-model="filteredSendForm.certificateChoice" class="select" required>
+            <option value="">Выберите сертификат</option>
+            <option v-for="item in certificateOptions" :key="item.id" :value="item.id">
+              {{ item.label }}
+            </option>
+            <option :value="MANUAL_CERTIFICATE_VALUE">Ввести вручную</option>
+          </select>
+        </BaseFormField>
+
+        <BaseFormField
+          v-if="filteredSendForm.certificateChoice === MANUAL_CERTIFICATE_VALUE"
+          id="sms-filtered-certificate-manual"
+          label="certificate вручную"
+          required
+        >
           <textarea
-            id="sms-filtered-certificate"
+            id="sms-filtered-certificate-manual"
             v-model="filteredSendForm.certificate"
             class="textarea mono textarea-small"
             placeholder="certificate text"
@@ -948,7 +1019,13 @@ onMounted(async () => {
           <tr v-for="(item, index) in filteredSmsLogs" :key="`${item.external_id || item.id || index}-${index}`">
             <td>{{ item.service_name || item.serviceName || '-' }}</td>
             <td class="mono">{{ item.from || '-' }}</td>
-            <td class="mono">{{ item.token || '-' }}</td>
+            <td>
+              <SensitiveValue
+                :value="item.token"
+                label="token"
+                :copy-label="`Copy full SMS token ${item.external_id || item.id || index}`"
+              />
+            </td>
             <td>{{ item.text || '-' }}</td>
             <td>
               <BaseStatusChip

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import BaseDataTable from '../components/base/BaseDataTable.vue';
 import BaseStatusChip from '../components/base/BaseStatusChip.vue';
+import SensitiveValue from '../components/base/SensitiveValue.vue';
 import { getAdminSmsLogs, refreshAdminSmsFromProvider } from '../lib/api';
 import { sessionState } from '../lib/session';
 
@@ -218,9 +219,21 @@ onMounted(() => {
         <tbody>
           <tr v-for="(item, index) in filteredSmsLogs" :key="`${item.external_id || item.id || index}-${index}`">
             <td>{{ item.service_name || '-' }}</td>
-            <td class="mono">{{ item.service_id || '-' }}</td>
+            <td>
+              <SensitiveValue
+                :value="item.service_id"
+                label="service_id"
+                :copy-label="`Copy full SMS service_id ${item.external_id || item.id || index}`"
+              />
+            </td>
             <td class="mono">{{ item.from || '-' }}</td>
-            <td class="mono">{{ item.token || '-' }}</td>
+            <td>
+              <SensitiveValue
+                :value="item.token"
+                label="token"
+                :copy-label="`Copy full SMS token ${item.external_id || item.id || index}`"
+              />
+            </td>
             <td>{{ item.text || '-' }}</td>
             <td>
               <BaseStatusChip

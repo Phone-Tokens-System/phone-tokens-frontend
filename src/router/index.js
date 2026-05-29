@@ -12,6 +12,7 @@ import BillingSuccessPage from '../pages/BillingSuccessPage.vue';
 import LoginPage from '../pages/LoginPage.vue';
 import NotFoundPage from '../pages/NotFoundPage.vue';
 import RegisterPage from '../pages/RegisterPage.vue';
+import SsoAuthorizePage from '../pages/SsoAuthorizePage.vue';
 import UserProfileView from '../pages/UserProfileView.vue';
 
 function dashboardPathByRole(role) {
@@ -36,6 +37,12 @@ const routes = [
     name: 'register',
     component: RegisterPage,
     meta: { guestOnly: true },
+  },
+  {
+    path: '/sso',
+    name: 'sso-authorize',
+    component: SsoAuthorizePage,
+    meta: { requiresAuth: true, requiresUser: true },
   },
   {
     path: '/dashboard',
