@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
 import { createCsrRequest, getSignedCertificate } from '../lib/api';
+import { saveAgentCertificate } from '../lib/agentCertificates';
 import { sessionState } from '../lib/session';
 
 const HISTORY_KEY = 'pt_frontend_csr_history';
@@ -123,7 +124,14 @@ async function fetchCertificate() {
     }
 
     certificate.value = cert;
-    success.value = 'Подписанный сертификат получен.';
+    saveAgentCertificate({
+      id: `csr-${fetchId.value.trim()}`,
+      label: `CSR #${fetchId.value.trim()}`,
+      certificate: cert,
+      agentId: sessionState.agentId,
+      createdAt: new Date().toISOString(),
+    });
+    success.value = 'Подписанный сертификат получен. Сертификат сохранен для отправки SMS.';
   } catch (requestError) {
     error.value = requestError?.message || 'Не удалось получить сертификат';
   } finally {
@@ -174,7 +182,7 @@ onMounted(() => {
     <article class="card">
       <h3>Получить подписанный сертификат</h3>
 
-      <form class="form" @submit.prevent="fetchCertificate">
+      <form class="form" aria-label="Форма получения сертификата" @submit.prevent="fetchCertificate">
         <label class="form-label">
           CSR ID
           <input v-model="fetchId" class="input mono" type="text" placeholder="123" />

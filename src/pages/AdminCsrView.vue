@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BaseDataTable from '../components/base/BaseDataTable.vue';
 import BaseStatusChip from '../components/base/BaseStatusChip.vue';
+import SensitiveValue from '../components/base/SensitiveValue.vue';
 import { approveAdminCsrRequest, getAdminCsrRequests } from '../lib/api';
 import { sessionState } from '../lib/session';
 
@@ -199,7 +200,13 @@ watch(
             <td class="mono">{{ item.id }}</td>
             <td>{{ item.email || '-' }}</td>
             <td>{{ item.serviceName || '-' }}</td>
-            <td class="mono">{{ item.agentId || '-' }}</td>
+            <td>
+              <SensitiveValue
+                :value="item.agentId"
+                label="agent_id"
+                :copy-label="`Copy full CSR agent_id ${item.id}`"
+              />
+            </td>
             <td>{{ item.hasCsr ? 'есть' : '-' }}</td>
             <td>
               <BaseStatusChip

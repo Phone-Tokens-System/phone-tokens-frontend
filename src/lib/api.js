@@ -256,6 +256,14 @@ export async function createBalanceTopUp(token, payload) {
   });
 }
 
+export async function completeSso(token, payload) {
+  return request('/api/v1/sso/complete', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
 export async function getTokensByUser(token, userId) {
   return request(`/api/v1/users/${encodeURIComponent(userId)}/tokens`, { token });
 }

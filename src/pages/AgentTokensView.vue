@@ -5,6 +5,7 @@ import BaseDataTable from '../components/base/BaseDataTable.vue';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import BaseModal from '../components/base/BaseModal.vue';
 import BaseStatusChip from '../components/base/BaseStatusChip.vue';
+import SensitiveValue from '../components/base/SensitiveValue.vue';
 import {
   createUserToken,
   deleteUserToken,
@@ -16,6 +17,8 @@ import {
 import { sessionState } from '../lib/session';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+const KNOWN_AGENT_IDS_KEY = 'pt_frontend_known_agent_ids';
+const MANUAL_AGENT_ID_VALUE = '__manual_agent_id__';
 const route = useRoute();
 
 const loading = ref(false);
@@ -26,14 +29,32 @@ const success = ref('');
 const tokens = ref([]);
 const deleteModalOpen = ref(false);
 const deleteTarget = ref(null);
+const knownAgentIds = ref(readKnownAgentIds());
+const tokenNameEdited = ref(false);
+
+function formatDateTimePart() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+function suggestedManualTokenName() {
+  return `Token ${formatDateTimePart()}`;
+}
 
 const createForm = reactive({
-  name: '',
+  name: suggestedManualTokenName(),
   ttlSeconds: '3600',
-  agentId: sessionState.agentId || ZERO_UUID,
+  agentIdChoice: '',
   sms: true,
   calls: true,
 });
+
+const manualAgentId = ref('');
 
 const ttlDraftById = reactive({});
 
@@ -48,8 +69,12 @@ const deleteModalDescription = computed(() => {
 watch(
   () => sessionState.agentId,
   (value) => {
-    if (!createForm.agentId) {
-      createForm.agentId = value || '';
+    const agentId = normalizeAgentId(value);
+    if (agentId) {
+      rememberAgentIds([agentId]);
+    }
+    if (!createForm.agentIdChoice && agentId) {
+      createForm.agentIdChoice = agentId;
     }
   },
 );
@@ -68,7 +93,13 @@ function syncAgentIdFromQuery(value) {
     return;
   }
 
-  createForm.agentId = queryAgentId;
+  const agentId = normalizeAgentId(queryAgentId);
+  if (!agentId) {
+    return;
+  }
+
+  rememberAgentIds([agentId]);
+  createForm.agentIdChoice = agentId;
 }
 
 watch(
@@ -81,6 +112,83 @@ watch(
 
 function setSuccess(message) {
   success.value = message;
+}
+
+function normalizeAgentId(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized || normalized === ZERO_UUID) {
+    return '';
+  }
+  return normalized;
+}
+
+function readKnownAgentIds() {
+  if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(KNOWN_AGENT_IDS_KEY) || '[]');
+    return Array.isArray(parsed)
+      ? parsed.map(normalizeAgentId).filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeKnownAgentIds(values) {
+  if (typeof localStorage === 'undefined' || typeof localStorage.setItem !== 'function') {
+    return;
+  }
+
+  localStorage.setItem(KNOWN_AGENT_IDS_KEY, JSON.stringify(values));
+}
+
+function rememberAgentIds(values) {
+  const next = [];
+  const seen = new Set();
+  for (const value of [...values, ...knownAgentIds.value]) {
+    const agentId = normalizeAgentId(value);
+    if (!agentId || seen.has(agentId)) {
+      continue;
+    }
+    seen.add(agentId);
+    next.push(agentId);
+  }
+
+  knownAgentIds.value = next.slice(0, 12);
+  writeKnownAgentIds(knownAgentIds.value);
+}
+
+const selectedAgentId = computed(() => (
+  createForm.agentIdChoice === MANUAL_AGENT_ID_VALUE
+    ? normalizeAgentId(manualAgentId.value)
+    : normalizeAgentId(createForm.agentIdChoice)
+));
+
+const agentIdOptions = computed(() => {
+  const values = [
+    normalizeQueryValue(route.query.agent_id),
+    sessionState.agentId,
+    ...knownAgentIds.value,
+    ...tokens.value.map((token) => token?.agent_id),
+  ];
+  const seen = new Set();
+  return values
+    .map(normalizeAgentId)
+    .filter((value) => {
+      if (!value || seen.has(value)) {
+        return false;
+      }
+      seen.add(value);
+      return true;
+    })
+    .map((value) => ({ value, label: value }));
+});
+
+function markTokenNameEdited() {
+  tokenNameEdited.value = true;
 }
 
 function normalizeTokenList(payload) {
@@ -105,13 +213,6 @@ function initTokenDrafts(list) {
       ttlDraftById[token.id] = '3600';
     }
   }
-}
-
-function maskToken(value) {
-  if (!value || value.length < 14) {
-    return value || '-';
-  }
-  return `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
 function tokenStatusLabel(value) {
@@ -161,6 +262,7 @@ async function fetchTokens() {
     const list = normalizeTokenList(payload);
     tokens.value = list;
     initTokenDrafts(list);
+    rememberAgentIds(list.map((item) => item?.agent_id));
     if (!error.value) {
       success.value = `Загружено токенов: ${list.length}`;
     }
@@ -188,12 +290,14 @@ async function createToken() {
   success.value = '';
 
   try {
+    const agentId = selectedAgentId.value || ZERO_UUID;
     const created = await createUserToken(sessionState.token, {
       name: createForm.name.trim(),
       ttl_seconds: ttlSeconds,
-      agent_id: createForm.agentId.trim() || ZERO_UUID,
+      agent_id: agentId,
       permissions: buildPermissions(),
     });
+    rememberAgentIds([agentId]);
 
     if (created && created.id) {
       tokens.value = [created, ...tokens.value.filter((item) => item.id !== created.id)];
@@ -201,7 +305,8 @@ async function createToken() {
     }
 
     setSuccess('Токен создан.');
-    createForm.name = '';
+    tokenNameEdited.value = false;
+    createForm.name = suggestedManualTokenName();
     createForm.ttlSeconds = '3600';
     await fetchTokens();
   } catch (requestError) {
@@ -308,14 +413,14 @@ async function refreshTokenRow(item) {
   }
 }
 
-async function copyToken(item) {
-  if (!item.token) return;
-  await navigator.clipboard.writeText(item.token);
-  setSuccess(`Токен "${item.name || item.id}" скопирован.`);
-}
-
 function isActionLoading(prefix, tokenId) {
   return actionKey.value === `${prefix}:${tokenId}`;
+}
+
+const initialSessionAgentId = normalizeAgentId(sessionState.agentId);
+if (!createForm.agentIdChoice && initialSessionAgentId) {
+  rememberAgentIds([initialSessionAgentId]);
+  createForm.agentIdChoice = initialSessionAgentId;
 }
 
 onMounted(() => {
@@ -330,16 +435,38 @@ onMounted(() => {
 
       <form class="form" aria-label="Форма создания токена" @submit.prevent="createToken">
         <BaseFormField id="token-name" label="Название токена">
-          <input id="token-name" v-model="createForm.name" class="input" type="text" placeholder="default token" />
+          <input
+            id="token-name"
+            v-model="createForm.name"
+            class="input"
+            type="text"
+            placeholder="default token"
+            @input="markTokenNameEdited"
+          />
         </BaseFormField>
 
         <BaseFormField id="token-agent-id" label="agent_id">
+          <select id="token-agent-id" v-model="createForm.agentIdChoice" class="select">
+            <option value="">Без agent_id</option>
+            <option v-for="option in agentIdOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+            <option :value="MANUAL_AGENT_ID_VALUE">Ввести вручную</option>
+          </select>
+        </BaseFormField>
+
+        <BaseFormField
+          v-if="createForm.agentIdChoice === MANUAL_AGENT_ID_VALUE"
+          id="token-agent-id-manual"
+          label="agent_id вручную"
+        >
           <input
-            id="token-agent-id"
-            v-model="createForm.agentId"
+            id="token-agent-id-manual"
+            v-model="manualAgentId"
+            aria-label="Ввести agent_id вручную"
             class="input mono"
             type="text"
-            placeholder="uuid (optional)"
+            placeholder="uuid"
           />
         </BaseFormField>
 
@@ -370,7 +497,14 @@ onMounted(() => {
         <div>
           <h3>Управление токенами</h3>
           <p class="subtitle">Обновление TTL, freeze/unfreeze, удаление.</p>
-          <p class="subtitle mono">user_id: {{ sessionState.claims?.userId || '-' }}</p>
+          <p class="subtitle">
+            user_id:
+            <SensitiveValue
+              :value="sessionState.claims?.userId"
+              label="user_id"
+              copy-label="Copy full user_id"
+            />
+          </p>
         </div>
 
         <div class="section-actions">
@@ -403,7 +537,13 @@ onMounted(() => {
         <tbody>
           <tr v-for="token in tokens" :key="token.id">
             <td>{{ token.name || '-' }}</td>
-            <td class="mono">{{ maskToken(token.token) }}</td>
+            <td>
+              <SensitiveValue
+                :value="token.token"
+                label="token"
+                :copy-label="`Copy full token ${token.name || token.id}`"
+              />
+            </td>
             <td>{{ Array.isArray(token.permissions) ? token.permissions.join(', ') : '-' }}</td>
             <td>
               <BaseStatusChip
@@ -413,18 +553,15 @@ onMounted(() => {
               />
             </td>
             <td class="mono">{{ token.expires_at || '-' }}</td>
-            <td class="mono">{{ token.agent_id || '-' }}</td>
+            <td>
+              <SensitiveValue
+                :value="token.agent_id"
+                label="agent_id"
+                :copy-label="`Copy full agent_id ${token.name || token.id}`"
+              />
+            </td>
             <td>
               <div class="row-actions">
-                <button
-                  type="button"
-                  class="btn btn-secondary btn-small"
-                  :aria-label="`Copy token ${token.name || token.id}`"
-                  @click="copyToken(token)"
-                >
-                  Copy
-                </button>
-
                 <button
                   type="button"
                   class="btn btn-secondary btn-small"

@@ -46,6 +46,19 @@ describe('AgentSmsLogsView', () => {
     mocks.getDictionaryCountriesMock.mockReset();
     mocks.getDictionaryRegionsMock.mockReset();
     mocks.getDictionaryCitiesMock.mockReset();
+    const storage = new Map();
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn((key) => storage.get(key) || null),
+      setItem: vi.fn((key, value) => {
+        storage.set(key, String(value));
+      }),
+      removeItem: vi.fn((key) => {
+        storage.delete(key);
+      }),
+      clear: vi.fn(() => {
+        storage.clear();
+      }),
+    });
 
     mocks.getSmsLogsByAgentMock.mockResolvedValue([
       {
@@ -135,6 +148,38 @@ describe('AgentSmsLogsView', () => {
     expect(wrapper.text()).toContain('Укажите certificate.');
   });
 
+  it('lets agent select an existing certificate for single sms', async () => {
+    localStorage.setItem(
+      'pt_frontend_agent_certificates',
+      JSON.stringify([
+        {
+          id: 'csr-42',
+          label: 'CSR #42',
+          certificate: '-----BEGIN CERTIFICATE-----\nCERT-42\n-----END CERTIFICATE-----',
+          createdAt: '2026-05-29T00:00:00.000Z',
+        },
+      ]),
+    );
+    mocks.sendSmsMock.mockResolvedValue({ id: 'sms-3' });
+
+    const wrapper = mount(AgentSmsLogsView);
+    await flushPromises();
+
+    expect(wrapper.find('#sms-certificate').exists()).toBe(false);
+    await wrapper.get('#sms-certificate-select').setValue('csr-42');
+    await wrapper.get('#sms-client-token').setValue('token-1');
+    await wrapper.get('#sms-text').setValue('Hello there');
+    await wrapper.get('form[aria-label="Форма отправки SMS"]').trigger('submit.prevent');
+    await flushPromises();
+
+    expect(mocks.sendSmsMock).toHaveBeenCalledWith('jwt-token', {
+      service_name: '',
+      certificate: '-----BEGIN CERTIFICATE-----\nCERT-42\n-----END CERTIFICATE-----',
+      client_token: 'token-1',
+      text: 'Hello there',
+    });
+  });
+
   it('submits filtered sms payload as FilterRequest map', async () => {
     mocks.sendSmsFilteredMock.mockResolvedValue([{ id: 'sms-3' }]);
 
@@ -142,7 +187,7 @@ describe('AgentSmsLogsView', () => {
     await flushPromises();
 
     await wrapper.get('#sms-filtered-service-name').setValue('svc-filtered');
-    await wrapper.get('#sms-filtered-certificate').setValue('CERTIFICATE');
+    await wrapper.get('#sms-filtered-certificate-manual').setValue('CERTIFICATE');
     await wrapper.get('#sms-filtered-text').setValue('Promo message');
     await wrapper.get('#sms-filtered-gender').setValue('male');
     await wrapper.get('#sms-filtered-education').setValue('bachelor');
@@ -174,7 +219,7 @@ describe('AgentSmsLogsView', () => {
     const wrapper = mount(AgentSmsLogsView);
     await flushPromises();
 
-    await wrapper.get('#sms-filtered-certificate').setValue('CERTIFICATE');
+    await wrapper.get('#sms-filtered-certificate-manual').setValue('CERTIFICATE');
     await wrapper.get('#sms-filtered-text').setValue('Promo message');
     await wrapper.get('#sms-filtered-gender').setValue('male');
     await wrapper.get('form[aria-label="Форма отправки SMS по фильтрам"]').trigger('submit.prevent');

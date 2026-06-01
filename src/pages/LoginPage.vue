@@ -9,10 +9,14 @@ import { clearSession, sessionState, setAgentId, setToken } from '../lib/session
 const router = useRouter();
 const route = useRoute();
 
+function isSsoRedirect(value) {
+  return typeof value === 'string' && value.startsWith('/sso');
+}
+
 const form = reactive({
   phone: '',
   password: '',
-  role: 'agent',
+  role: isSsoRedirect(route.query.redirect) ? 'user' : 'agent',
 });
 
 const loading = ref(false);
