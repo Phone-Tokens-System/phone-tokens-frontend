@@ -26,6 +26,7 @@ const tabs = computed(() => {
     return [
       { name: 'dashboard-admin-csr', to: '/dashboard/admin/csr', label: 'CSR' },
       { name: 'dashboard-admin-sms', to: '/dashboard/admin/sms', label: 'SMS Monitor' },
+      { name: 'dashboard-admin-packages', to: '/dashboard/admin/packages', label: 'Packages' },
     ];
   }
 
@@ -34,6 +35,7 @@ const tabs = computed(() => {
       { name: 'dashboard-certificates', to: '/dashboard/certificates', label: 'Certificates' },
       { name: 'dashboard-sms', to: '/dashboard/sms', label: 'SMS' },
       { name: 'dashboard-billing', to: '/dashboard/billing', label: 'Billing' },
+      { name: 'dashboard-packages', to: '/dashboard/packages', label: 'Packages' },
     ];
   }
 

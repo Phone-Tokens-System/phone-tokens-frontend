@@ -1,8 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { isAuthenticated, sessionState } from '../lib/session';
 import AdminCsrView from '../pages/AdminCsrView.vue';
+import AdminPackagesView from '../pages/AdminPackagesView.vue';
 import AdminSmsView from '../pages/AdminSmsView.vue';
 import AgentBillingView from '../pages/AgentBillingView.vue';
+import AgentPackagesView from '../pages/AgentPackagesView.vue';
 import AgentCertificatesView from '../pages/AgentCertificatesView.vue';
 import AgentDashboardPage from '../pages/AgentDashboardPage.vue';
 import AgentSmsLogsView from '../pages/AgentSmsLogsView.vue';
@@ -73,6 +75,12 @@ const routes = [
         meta: { requiresAgent: true },
       },
       {
+        path: 'packages',
+        name: 'dashboard-packages',
+        component: AgentPackagesView,
+        meta: { requiresAgent: true },
+      },
+      {
         path: 'profile',
         name: 'dashboard-user-profile',
         component: UserProfileView,
@@ -100,6 +108,12 @@ const routes = [
         path: 'admin/sms',
         name: 'dashboard-admin-sms',
         component: AdminSmsView,
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: 'admin/packages',
+        name: 'dashboard-admin-packages',
+        component: AdminPackagesView,
         meta: { requiresAdmin: true },
       },
     ],

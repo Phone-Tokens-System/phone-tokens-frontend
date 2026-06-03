@@ -317,6 +317,37 @@ export async function deleteUserToken(token, tokenId) {
   });
 }
 
+export async function getPackages(token) {
+  return request('/api/v1/packages', { token });
+}
+
+export async function buyPackage(token, agentId, pkgId) {
+  return request(`/api/v1/agents/${encodeURIComponent(agentId)}/packages`, {
+    method: 'POST',
+    token,
+    body: { pkg_id: pkgId },
+  });
+}
+
+export async function getAgentPackages(token, agentId) {
+  return request(`/api/v1/agents/${encodeURIComponent(agentId)}/packages`, { token });
+}
+
+export async function createPackage(token, payload) {
+  return request('/api/v1/admin/packages', {
+    method: 'POST',
+    token,
+    body: payload,
+  });
+}
+
+export async function deletePackage(token, pkgId) {
+  return request(`/api/v1/admin/packages/${encodeURIComponent(pkgId)}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export async function getDictionaryCountries() {
   return request('/api/v1/dictionary/countries');
 }
