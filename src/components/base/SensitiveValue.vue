@@ -68,10 +68,15 @@ async function copyValue() {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
 }
 
 .sensitive-text {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
 }
 
 .sensitive-copy {

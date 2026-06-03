@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 
 const mocks = vi.hoisted(() => ({
+  getCurrentSignedCertificateMock: vi.fn(),
   getSmsLogsByAgentMock: vi.fn(),
   sendSmsMock: vi.fn(),
   sendSmsFilteredMock: vi.fn(),
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../lib/api', () => ({
+  getCurrentSignedCertificate: (...args) => mocks.getCurrentSignedCertificateMock(...args),
   getSmsLogsByAgent: (...args) => mocks.getSmsLogsByAgentMock(...args),
   sendSms: (...args) => mocks.sendSmsMock(...args),
   sendSmsFiltered: (...args) => mocks.sendSmsFilteredMock(...args),
@@ -38,6 +40,7 @@ beforeAll(async () => {
 
 describe('AgentSmsLogsView', () => {
   beforeEach(() => {
+    mocks.getCurrentSignedCertificateMock.mockReset();
     mocks.getSmsLogsByAgentMock.mockReset();
     mocks.sendSmsMock.mockReset();
     mocks.sendSmsFilteredMock.mockReset();
@@ -175,6 +178,30 @@ describe('AgentSmsLogsView', () => {
     expect(mocks.sendSmsMock).toHaveBeenCalledWith('jwt-token', {
       service_name: '',
       certificate: '-----BEGIN CERTIFICATE-----\nCERT-42\n-----END CERTIFICATE-----',
+      client_token: 'token-1',
+      text: 'Hello there',
+    });
+  });
+
+  it('auto-selects current signed certificate when backend has one', async () => {
+    mocks.getCurrentSignedCertificateMock.mockResolvedValue({
+      csr_id: 77,
+      certificate: '-----BEGIN CERTIFICATE-----\nCERT-77\n-----END CERTIFICATE-----',
+    });
+    mocks.sendSmsMock.mockResolvedValue({ id: 'sms-3' });
+
+    const wrapper = mount(AgentSmsLogsView);
+    await flushPromises();
+
+    expect(wrapper.get('#sms-certificate-select').element.value).toBe('csr-77');
+    await wrapper.get('#sms-client-token').setValue('token-1');
+    await wrapper.get('#sms-text').setValue('Hello there');
+    await wrapper.get('form[aria-label="Форма отправки SMS"]').trigger('submit.prevent');
+    await flushPromises();
+
+    expect(mocks.sendSmsMock).toHaveBeenCalledWith('jwt-token', {
+      service_name: '',
+      certificate: '-----BEGIN CERTIFICATE-----\nCERT-77\n-----END CERTIFICATE-----',
       client_token: 'token-1',
       text: 'Hello there',
     });

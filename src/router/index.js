@@ -13,6 +13,7 @@ import LoginPage from '../pages/LoginPage.vue';
 import NotFoundPage from '../pages/NotFoundPage.vue';
 import RegisterPage from '../pages/RegisterPage.vue';
 import SsoAuthorizePage from '../pages/SsoAuthorizePage.vue';
+import UserSmsView from '../pages/UserSmsView.vue';
 import UserProfileView from '../pages/UserProfileView.vue';
 
 function dashboardPathByRole(role) {
@@ -81,6 +82,12 @@ const routes = [
         path: 'tokens',
         name: 'dashboard-tokens',
         component: AgentTokensView,
+        meta: { requiresUser: true },
+      },
+      {
+        path: 'user-sms',
+        name: 'dashboard-user-sms',
+        component: UserSmsView,
         meta: { requiresUser: true },
       },
       {

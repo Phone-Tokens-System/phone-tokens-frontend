@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
-import { createCsrRequest, getSignedCertificate } from '../lib/api';
-import { saveAgentCertificate } from '../lib/agentCertificates';
+import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { createCsrRequest, getCurrentSignedCertificate, getSignedCertificate } from '../lib/api';
+import { saveSignedAgentCertificate } from '../lib/agentCertificates';
 import { sessionState } from '../lib/session';
 
 const HISTORY_KEY = 'pt_frontend_csr_history';
@@ -18,20 +18,40 @@ const loadingCert = ref(false);
 const error = ref('');
 const success = ref('');
 const history = ref([]);
+let certificatePollId = null;
+
+function historyKey() {
+  const agentId = String(sessionState.agentId || '').trim();
+  return agentId ? `${HISTORY_KEY}:${agentId}` : '';
+}
 
 function loadHistory() {
+  const key = historyKey();
+  if (!key) {
+    history.value = [];
+    return;
+  }
+
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    history.value = raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    history.value = Array.isArray(parsed)
+      ? parsed.filter((item) => !item?.agentId || item.agentId === sessionState.agentId)
+      : [];
   } catch (storageError) {
     history.value = [];
   }
 }
 
 function saveHistoryItem(item) {
-  const next = [item, ...history.value].slice(0, 8);
+  const key = historyKey();
+  if (!key) {
+    return;
+  }
+
+  const next = [{ ...item, agentId: sessionState.agentId }, ...history.value].slice(0, 8);
   history.value = next;
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  localStorage.setItem(key, JSON.stringify(next));
 }
 
 function extractCsrId(payload) {
@@ -53,21 +73,15 @@ function extractCsrId(payload) {
   return null;
 }
 
-function extractCertificate(payload) {
-  if (typeof payload === 'string') {
-    return payload;
-  }
-
-  if (payload && typeof payload === 'object') {
-    return payload.certificate || payload.Certificate || '';
-  }
-
-  return '';
-}
-
 async function submitCsr() {
   if (!sessionState.token) {
     error.value = 'Сессия не найдена. Выполните вход заново.';
+    return;
+  }
+
+  const csrValue = form.csr.trim();
+  if (!csrValue.includes('-----BEGIN CERTIFICATE REQUEST-----') || !csrValue.includes('-----END CERTIFICATE REQUEST-----')) {
+    error.value = 'Вставьте CSR в PEM формате: -----BEGIN CERTIFICATE REQUEST----- ... -----END CERTIFICATE REQUEST-----.';
     return;
   }
 
@@ -78,7 +92,7 @@ async function submitCsr() {
   try {
     const result = await createCsrRequest(sessionState.token, {
       email: form.email.trim(),
-      csr: form.csr,
+      csr: csrValue,
     });
 
     const csrId = extractCsrId(result);
@@ -100,14 +114,71 @@ async function submitCsr() {
   }
 }
 
-async function fetchCertificate() {
+async function saveCertificatePayload(payload, fallbackCsrId = '') {
+  const saved = saveSignedAgentCertificate(payload, sessionState.agentId);
+  if (!saved?.certificate) {
+    throw new Error('Сертификат пока не получен или еще не approve админом.');
+  }
+
+  certificate.value = saved.certificate;
+  if (fallbackCsrId && !saved.id.startsWith('csr-')) {
+    fetchId.value = String(fallbackCsrId);
+  }
+  return saved;
+}
+
+async function checkCurrentCertificate({ silent = false } = {}) {
+  if (!sessionState.token) {
+    if (!silent) {
+      error.value = 'Сессия не найдена. Выполните вход заново.';
+    }
+    return;
+  }
+
+  if (silent && loadingCert.value) {
+    return;
+  }
+
+  loadingCert.value = true;
+  if (!silent) {
+    error.value = '';
+    success.value = '';
+  }
+
+  try {
+    const payload = await getCurrentSignedCertificate(sessionState.token);
+    const saved = await saveCertificatePayload(payload);
+    if (!silent) {
+      const csrLabel = saved.id.startsWith('csr-') ? ` (${saved.label})` : '';
+      success.value = `Новые сертификаты проверены. Подписанный сертификат сохранен для отправки SMS${csrLabel}.`;
+    }
+  } catch (requestError) {
+    if (silent && requestError?.status === 404) {
+      return;
+    }
+
+    if (requestError?.status === 404) {
+      error.value = 'Новых подписанных сертификатов пока нет.';
+      return;
+    }
+
+    if (!silent) {
+      error.value = requestError?.message || 'Не удалось проверить новые сертификаты';
+    }
+  } finally {
+    loadingCert.value = false;
+  }
+}
+
+async function fetchCertificateById(csrId) {
   if (!sessionState.token) {
     error.value = 'Сессия не найдена. Выполните вход заново.';
     return;
   }
 
-  if (!fetchId.value.trim()) {
-    error.value = 'Введите CSR ID.';
+  const normalizedId = String(csrId || '').trim();
+  if (!normalizedId) {
+    error.value = 'CSR ID не найден.';
     return;
   }
 
@@ -116,22 +187,9 @@ async function fetchCertificate() {
   success.value = '';
 
   try {
-    const payload = await getSignedCertificate(sessionState.token, fetchId.value.trim());
-    const cert = extractCertificate(payload);
-
-    if (!cert) {
-      throw new Error('Сертификат пока не получен или еще не approve админом.');
-    }
-
-    certificate.value = cert;
-    saveAgentCertificate({
-      id: `csr-${fetchId.value.trim()}`,
-      label: `CSR #${fetchId.value.trim()}`,
-      certificate: cert,
-      agentId: sessionState.agentId,
-      createdAt: new Date().toISOString(),
-    });
-    success.value = 'Подписанный сертификат получен. Сертификат сохранен для отправки SMS.';
+    const payload = await getSignedCertificate(sessionState.token, normalizedId);
+    const saved = await saveCertificatePayload(payload, normalizedId);
+    success.value = `${saved.label} сохранен для отправки SMS.`;
   } catch (requestError) {
     error.value = requestError?.message || 'Не удалось получить сертификат';
   } finally {
@@ -149,11 +207,43 @@ async function copyCertificate() {
 }
 
 function useHistoryItem(item) {
-  fetchId.value = String(item.id);
+  fetchCertificateById(item.id);
 }
+
+function startCertificatePolling() {
+  if (certificatePollId !== null) {
+    return;
+  }
+
+  certificatePollId = window.setInterval(() => {
+    checkCurrentCertificate({ silent: true });
+  }, 5000);
+}
+
+function stopCertificatePolling() {
+  if (certificatePollId === null) {
+    return;
+  }
+
+  window.clearInterval(certificatePollId);
+  certificatePollId = null;
+}
+
+watch(
+  () => sessionState.agentId,
+  () => {
+    loadHistory();
+  },
+);
 
 onMounted(() => {
   loadHistory();
+  checkCurrentCertificate({ silent: true });
+  startCertificatePolling();
+});
+
+onUnmounted(() => {
+  stopCertificatePolling();
 });
 </script>
 
@@ -180,17 +270,13 @@ onMounted(() => {
     </article>
 
     <article class="card">
-      <h3>Получить подписанный сертификат</h3>
+      <h3>Проверить новые сертификаты</h3>
+      <p class="subtitle">После approve админом подписанный сертификат сохранится для отправки SMS автоматически.</p>
 
-      <form class="form" aria-label="Форма получения сертификата" @submit.prevent="fetchCertificate">
-        <label class="form-label">
-          CSR ID
-          <input v-model="fetchId" class="input mono" type="text" placeholder="123" />
-        </label>
-
+      <form class="form" aria-label="Форма проверки новых сертификатов" @submit.prevent="checkCurrentCertificate()">
         <div class="section-actions">
           <button type="submit" class="btn btn-primary" :disabled="loadingCert">
-            {{ loadingCert ? 'Проверка...' : 'Получить сертификат' }}
+            {{ loadingCert ? 'Проверка...' : 'Проверить новые сертификаты' }}
           </button>
 
           <button type="button" class="btn btn-secondary" :disabled="!certificate" @click="copyCertificate">
@@ -226,7 +312,9 @@ onMounted(() => {
               <td>{{ item.email }}</td>
               <td class="mono">{{ new Date(item.createdAt).toLocaleString() }}</td>
               <td>
-                <button type="button" class="btn btn-secondary" @click="useHistoryItem(item)">Use</button>
+                <button type="button" class="btn btn-secondary" :disabled="loadingCert" @click="useHistoryItem(item)">
+                  Проверить CSR
+                </button>
               </td>
             </tr>
           </tbody>

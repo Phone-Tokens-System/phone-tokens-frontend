@@ -56,3 +56,42 @@ export function saveAgentCertificate(item) {
   localStorage.setItem(AGENT_CERTIFICATES_KEY, JSON.stringify(next));
   return next;
 }
+
+export function extractSignedCertificate(payload) {
+  if (typeof payload === 'string') {
+    return {
+      certificate: payload,
+      csrId: '',
+    };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return {
+      certificate: '',
+      csrId: '',
+    };
+  }
+
+  return {
+    certificate: String(payload.certificate || payload.Certificate || '').trim(),
+    csrId: String(payload.csr_id ?? payload.csrId ?? payload.CsrId ?? '').trim(),
+  };
+}
+
+export function saveSignedAgentCertificate(payload, agentId = '') {
+  const signed = extractSignedCertificate(payload);
+  if (!signed.certificate) {
+    return null;
+  }
+
+  const item = {
+    id: signed.csrId ? `csr-${signed.csrId}` : `cert-${Date.now()}`,
+    label: signed.csrId ? `CSR #${signed.csrId}` : 'Подписанный сертификат',
+    certificate: signed.certificate,
+    agentId,
+    createdAt: new Date().toISOString(),
+  };
+
+  saveAgentCertificate(item);
+  return item;
+}

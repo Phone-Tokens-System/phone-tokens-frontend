@@ -65,6 +65,33 @@ describe('AdminSmsView', () => {
     expect(wrapper.text()).toContain('token-1');
   });
 
+  it('shows sender and recipient token without exposing sms text', async () => {
+    mocks.getAdminSmsLogsMock.mockResolvedValue([
+      {
+        id: 'sms-1',
+        service_name: 'svc-a',
+        service_id: 'agent-1',
+        from: '+7999999996',
+        token: 'token-1',
+        text: 'secret message body',
+        status: 1,
+        date_created: 1700000000,
+      },
+    ]);
+
+    const wrapper = mount(AdminSmsView);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('From');
+    expect(wrapper.text()).toContain('To');
+    expect(wrapper.text()).toContain('svc-a');
+    expect(wrapper.text()).toContain('+7999999996');
+    expect(wrapper.text()).toContain('token-1');
+    expect(wrapper.text()).not.toContain('Text');
+    expect(wrapper.text()).not.toContain('secret message body');
+    expect(wrapper.get('input[type="text"]').attributes('placeholder')).not.toContain('text');
+  });
+
   it('syncs sms from provider and reloads logs', async () => {
     mocks.getAdminSmsLogsMock
       .mockResolvedValueOnce([])

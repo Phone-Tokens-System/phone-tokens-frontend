@@ -150,6 +150,10 @@ export async function getSignedCertificate(token, csrId) {
   );
 }
 
+export async function getCurrentSignedCertificate(token) {
+  return request('/api/v1/csr/signed/current', { token });
+}
+
 export async function getAdminPing(token) {
   return request('/api/v1/admin/ping', { token });
 }
@@ -186,6 +190,10 @@ export async function refreshAdminSmsFromProvider(token) {
 
 export async function getSmsLogsByAgent(token, agentId) {
   return request(`/api/v1/sms/agents/${encodeURIComponent(agentId)}`, { token });
+}
+
+export async function getSmsLogsByToken(token, clientToken) {
+  return request(`/api/v1/sms/users/${encodeURIComponent(clientToken)}`, { token });
 }
 
 export async function getUserProfileFilters(token) {

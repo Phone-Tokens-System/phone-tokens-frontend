@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import BaseDataTable from '../components/base/BaseDataTable.vue';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import BaseStatusChip from '../components/base/BaseStatusChip.vue';
 import SensitiveValue from '../components/base/SensitiveValue.vue';
 import {
   getAgentUserProfilesFiltered,
+  getCurrentSignedCertificate,
   getDictionaryCities,
   getDictionaryCountries,
   getDictionaryRegions,
@@ -14,7 +15,7 @@ import {
   sendSms,
   sendSmsFiltered,
 } from '../lib/api';
-import { readAgentCertificates } from '../lib/agentCertificates';
+import { readAgentCertificates, saveSignedAgentCertificate } from '../lib/agentCertificates';
 import { sessionState } from '../lib/session';
 
 const loading = ref(false);
@@ -31,6 +32,8 @@ const filteredSendError = ref('');
 const filteredSendSuccess = ref('');
 const smsLogs = ref([]);
 const certificateOptions = ref([]);
+const syncingCurrentCertificate = ref(false);
+let certificatePollId = null;
 
 const countryOptions = ref([]);
 const regionOptions = ref([]);
@@ -225,6 +228,52 @@ function loadCertificateOptions() {
   if (!filteredSendForm.certificateChoice) {
     filteredSendForm.certificateChoice = firstCertificate || MANUAL_CERTIFICATE_VALUE;
   }
+}
+
+async function syncCurrentCertificate() {
+  if (!sessionState.token || syncingCurrentCertificate.value) {
+    return;
+  }
+
+  syncingCurrentCertificate.value = true;
+  try {
+    const payload = await getCurrentSignedCertificate(sessionState.token);
+    const saved = saveSignedAgentCertificate(payload, sessionState.agentId);
+    if (!saved) {
+      return;
+    }
+
+    loadCertificateOptions();
+    if (sendForm.certificateChoice === MANUAL_CERTIFICATE_VALUE || !sendForm.certificateChoice) {
+      sendForm.certificateChoice = saved.id;
+    }
+    if (filteredSendForm.certificateChoice === MANUAL_CERTIFICATE_VALUE || !filteredSendForm.certificateChoice) {
+      filteredSendForm.certificateChoice = saved.id;
+    }
+  } catch {
+    loadCertificateOptions();
+  } finally {
+    syncingCurrentCertificate.value = false;
+  }
+}
+
+function startCertificatePolling() {
+  if (certificatePollId !== null) {
+    return;
+  }
+
+  certificatePollId = window.setInterval(() => {
+    syncCurrentCertificate();
+  }, 5000);
+}
+
+function stopCertificatePolling() {
+  if (certificatePollId === null) {
+    return;
+  }
+
+  window.clearInterval(certificatePollId);
+  certificatePollId = null;
 }
 
 function selectedCertificateValue(choice, manualValue) {
@@ -717,7 +766,7 @@ watch(
   () => sessionState.agentId,
   (value, previous) => {
     if (value && value !== previous) {
-      loadCertificateOptions();
+      syncCurrentCertificate();
       fetchSmsLogs();
     }
   },
@@ -745,6 +794,7 @@ watch(
   () => sessionState.token,
   async (value, previous) => {
     if (value && value !== previous) {
+      await syncCurrentCertificate();
       await loadFilterDefinitions();
       await loadCountries();
     }
@@ -753,11 +803,17 @@ watch(
 
 onMounted(async () => {
   loadCertificateOptions();
+  await syncCurrentCertificate();
+  startCertificatePolling();
   await loadFilterDefinitions();
   await loadCountries();
   if (sessionState.agentId) {
     await fetchSmsLogs();
   }
+});
+
+onUnmounted(() => {
+  stopCertificatePolling();
 });
 </script>
 
