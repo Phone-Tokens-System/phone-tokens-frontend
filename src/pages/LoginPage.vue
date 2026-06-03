@@ -4,19 +4,14 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import { getCurrentUser, login } from '../lib/api';
 import { normalizeRuPhone } from '../lib/phone';
-import { clearSession, sessionState, setAgentId, setToken } from '../lib/session';
+import { sessionState, setAgentId, setToken } from '../lib/session';
 
 const router = useRouter();
 const route = useRoute();
 
-function isSsoRedirect(value) {
-  return typeof value === 'string' && value.startsWith('/sso');
-}
-
 const form = reactive({
   phone: '',
   password: '',
-  role: isSsoRedirect(route.query.redirect) ? 'user' : 'agent',
 });
 
 const loading = ref(false);
@@ -52,12 +47,6 @@ async function submitForm() {
     const me = await getCurrentUser(sessionState.token).catch(() => null);
     const role = me?.Role || me?.role || sessionState.claims?.role;
 
-    if (role !== form.role) {
-      clearSession();
-      error.value = `Вы выбрали роль "${form.role}", но аккаунт имеет роль "${role || 'unknown'}".`;
-      return;
-    }
-
     if (role === 'agent') {
       const profileAgentId = me?.agent_id || me?.agentId || '';
       setAgentId(profileAgentId);
@@ -87,17 +76,9 @@ async function submitForm() {
   <div class="page">
     <section class="panel">
       <h1 class="title">Вход</h1>
-      <p class="subtitle">Выберите роль и войдите в кабинет под своим аккаунтом.</p>
+      <p class="subtitle">Войдите в кабинет под своим аккаунтом.</p>
 
       <form class="form" aria-label="Форма входа" @submit.prevent="submitForm">
-        <BaseFormField id="login-role" label="Войти как">
-          <select id="login-role" v-model="form.role" class="select">
-            <option value="agent">agent</option>
-            <option value="user">user</option>
-            <option value="admin">admin</option>
-          </select>
-        </BaseFormField>
-
         <BaseFormField id="login-phone" label="Телефон" required>
           <input
             id="login-phone"

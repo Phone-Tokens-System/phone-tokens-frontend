@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import BaseDataTable from '../components/base/BaseDataTable.vue';
-import BaseStatusChip from '../components/base/BaseStatusChip.vue';
 import SensitiveValue from '../components/base/SensitiveValue.vue';
 import { getSmsLogsByToken, getTokensByUser } from '../lib/api';
 import { sessionState } from '../lib/session';
@@ -156,11 +155,7 @@ onMounted(() => {
             <th scope="col">Token</th>
             <th scope="col">Agent ID</th>
             <th scope="col">Service</th>
-            <th scope="col">From</th>
             <th scope="col">Text</th>
-            <th scope="col">Status</th>
-            <th scope="col">Cost</th>
-            <th scope="col">Created</th>
             <th scope="col">Sent</th>
           </tr>
         </thead>
@@ -182,17 +177,7 @@ onMounted(() => {
               />
             </td>
             <td>{{ item.serviceName || '-' }}</td>
-            <td class="mono">{{ item.from || '-' }}</td>
             <td>{{ item.text || '-' }}</td>
-            <td>
-              <BaseStatusChip
-                :label="item.extendedStatus || smsStatusLabel(item.status)"
-                :tone="smsStatusTone(item.status)"
-                :aria-label="`SMS status: ${item.extendedStatus || smsStatusLabel(item.status)}`"
-              />
-            </td>
-            <td>{{ item.cost || item.cost === 0 ? item.cost : '-' }}</td>
-            <td class="mono">{{ item.createdAt || '-' }}</td>
             <td class="mono">{{ item.sentAt || '-' }}</td>
           </tr>
         </tbody>
