@@ -268,6 +268,10 @@ export async function getTokensByUser(token, userId) {
   return request(`/api/v1/users/${encodeURIComponent(userId)}/tokens`, { token });
 }
 
+export async function getTokensByAgent(token, agentId) {
+  return request(`/api/v1/agents/${encodeURIComponent(agentId)}/tokens`, { token });
+}
+
 export async function createUserToken(token, payload) {
   return request('/api/v1/tokens', {
     method: 'POST',
