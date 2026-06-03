@@ -198,4 +198,19 @@ describe('AgentTokensView', () => {
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('1234567890abcdef1234567890abcdef');
   });
+
+  it('marks sensitive table cells for compact one-line rendering', async () => {
+    const wrapper = mount(AgentTokensView, {
+      global: {
+        stubs: {
+          teleport: true,
+        },
+      },
+    });
+
+    await flushPromises();
+
+    expect(wrapper.find('td.token-cell .sensitive-value').exists()).toBe(true);
+    expect(wrapper.find('td.agent-id-cell .sensitive-value').exists()).toBe(true);
+  });
 });

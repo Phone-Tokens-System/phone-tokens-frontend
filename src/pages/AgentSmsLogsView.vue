@@ -1,26 +1,25 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import BaseDataTable from '../components/base/BaseDataTable.vue';
 import BaseFormField from '../components/base/BaseFormField.vue';
 import BaseStatusChip from '../components/base/BaseStatusChip.vue';
 import SensitiveValue from '../components/base/SensitiveValue.vue';
 import {
   getAgentUserProfilesFiltered,
+  getCurrentSignedCertificate,
   getDictionaryCities,
   getDictionaryCountries,
   getDictionaryRegions,
   getSmsLogsByAgent,
-  getTokensByAgent,
   getUserProfileFilters,
   sendSms,
   sendSmsFiltered,
 } from '../lib/api';
-import { readAgentCertificates } from '../lib/agentCertificates';
+import { readAgentCertificates, saveSignedAgentCertificate } from '../lib/agentCertificates';
 import { sessionState } from '../lib/session';
 
 const loading = ref(false);
 const sending = ref(false);
-const agentTokenOptions = ref([]);
 const sendingFiltered = ref(false);
 const loadingCountries = ref(false);
 const loadingRegions = ref(false);
@@ -33,6 +32,8 @@ const filteredSendError = ref('');
 const filteredSendSuccess = ref('');
 const smsLogs = ref([]);
 const certificateOptions = ref([]);
+const syncingCurrentCertificate = ref(false);
+let certificatePollId = null;
 
 const countryOptions = ref([]);
 const regionOptions = ref([]);
@@ -52,7 +53,6 @@ const sendForm = reactive({
   serviceName: '',
   certificateChoice: '',
   certificate: '',
-  tokenChoice: '',
   clientToken: '',
   text: '',
 });
@@ -88,7 +88,6 @@ const statusFilterOptions = [
 ];
 
 const MANUAL_CERTIFICATE_VALUE = '__manual_certificate__';
-const MANUAL_TOKEN_VALUE = '__manual_token__';
 
 function normalizeSmsList(payload) {
   if (Array.isArray(payload)) {
@@ -218,30 +217,6 @@ function countSentSms(payload) {
   return 0;
 }
 
-async function loadAgentTokenOptions() {
-  if (!sessionState.token || !sessionState.agentId) {
-    agentTokenOptions.value = [];
-    return;
-  }
-
-  try {
-    const payload = await getTokensByAgent(sessionState.token, sessionState.agentId);
-    const tokens = Array.isArray(payload) ? payload : (payload?.data ?? payload?.items ?? []);
-    agentTokenOptions.value = tokens
-      .filter((t) => t?.token)
-      .map((t) => ({
-        value: t.token,
-        label: t.name ? `${t.name} (${t.token.slice(0, 8)}…)` : t.token.slice(0, 16) + '…',
-      }));
-  } catch {
-    agentTokenOptions.value = [];
-  }
-
-  if (!sendForm.tokenChoice) {
-    sendForm.tokenChoice = agentTokenOptions.value[0]?.value || MANUAL_TOKEN_VALUE;
-  }
-}
-
 function loadCertificateOptions() {
   certificateOptions.value = readAgentCertificates(sessionState.agentId);
   const firstCertificate = certificateOptions.value[0]?.id || '';
@@ -253,6 +228,52 @@ function loadCertificateOptions() {
   if (!filteredSendForm.certificateChoice) {
     filteredSendForm.certificateChoice = firstCertificate || MANUAL_CERTIFICATE_VALUE;
   }
+}
+
+async function syncCurrentCertificate() {
+  if (!sessionState.token || syncingCurrentCertificate.value) {
+    return;
+  }
+
+  syncingCurrentCertificate.value = true;
+  try {
+    const payload = await getCurrentSignedCertificate(sessionState.token);
+    const saved = saveSignedAgentCertificate(payload, sessionState.agentId);
+    if (!saved) {
+      return;
+    }
+
+    loadCertificateOptions();
+    if (sendForm.certificateChoice === MANUAL_CERTIFICATE_VALUE || !sendForm.certificateChoice) {
+      sendForm.certificateChoice = saved.id;
+    }
+    if (filteredSendForm.certificateChoice === MANUAL_CERTIFICATE_VALUE || !filteredSendForm.certificateChoice) {
+      filteredSendForm.certificateChoice = saved.id;
+    }
+  } catch {
+    loadCertificateOptions();
+  } finally {
+    syncingCurrentCertificate.value = false;
+  }
+}
+
+function startCertificatePolling() {
+  if (certificatePollId !== null) {
+    return;
+  }
+
+  certificatePollId = window.setInterval(() => {
+    syncCurrentCertificate();
+  }, 5000);
+}
+
+function stopCertificatePolling() {
+  if (certificatePollId === null) {
+    return;
+  }
+
+  window.clearInterval(certificatePollId);
+  certificatePollId = null;
 }
 
 function selectedCertificateValue(choice, manualValue) {
@@ -445,12 +466,7 @@ async function submitSms() {
     return;
   }
 
-  const clientToken =
-    sendForm.tokenChoice === MANUAL_TOKEN_VALUE
-      ? sendForm.clientToken.trim()
-      : sendForm.tokenChoice;
-
-  if (!clientToken) {
+  if (!sendForm.clientToken.trim()) {
     sendError.value = 'Укажите client_token.';
     return;
   }
@@ -474,7 +490,7 @@ async function submitSms() {
     await sendSms(sessionState.token, {
       service_name: sendForm.serviceName.trim(),
       certificate,
-      client_token: clientToken,
+      client_token: sendForm.clientToken.trim(),
       text: sendForm.text.trim(),
     });
 
@@ -748,10 +764,9 @@ async function submitFilteredSms() {
 
 watch(
   () => sessionState.agentId,
-  async (value, previous) => {
+  (value, previous) => {
     if (value && value !== previous) {
-      loadCertificateOptions();
-      await loadAgentTokenOptions();
+      syncCurrentCertificate();
       fetchSmsLogs();
     }
   },
@@ -779,6 +794,7 @@ watch(
   () => sessionState.token,
   async (value, previous) => {
     if (value && value !== previous) {
+      await syncCurrentCertificate();
       await loadFilterDefinitions();
       await loadCountries();
     }
@@ -787,12 +803,17 @@ watch(
 
 onMounted(async () => {
   loadCertificateOptions();
-  await loadAgentTokenOptions();
+  await syncCurrentCertificate();
+  startCertificatePolling();
   await loadFilterDefinitions();
   await loadCountries();
   if (sessionState.agentId) {
     await fetchSmsLogs();
   }
+});
+
+onUnmounted(() => {
+  stopCertificatePolling();
 });
 </script>
 
@@ -806,24 +827,9 @@ onMounted(async () => {
           <input id="sms-service-name" v-model="sendForm.serviceName" class="input" type="text" placeholder="provider/service" />
         </BaseFormField>
 
-        <BaseFormField id="sms-client-token-select" label="client_token" required>
-          <select id="sms-client-token-select" v-model="sendForm.tokenChoice" class="select" required>
-            <option value="">Выберите токен</option>
-            <option v-for="item in agentTokenOptions" :key="item.value" :value="item.value">
-              {{ item.label }}
-            </option>
-            <option :value="MANUAL_TOKEN_VALUE">Ввести вручную</option>
-          </select>
-        </BaseFormField>
-
-        <BaseFormField
-          v-if="sendForm.tokenChoice === MANUAL_TOKEN_VALUE"
-          id="sms-client-token-manual"
-          label="client_token вручную"
-          required
-        >
+        <BaseFormField id="sms-client-token" label="client_token" required>
           <input
-            id="sms-client-token-manual"
+            id="sms-client-token"
             v-model="sendForm.clientToken"
             class="input mono"
             type="text"

@@ -94,7 +94,6 @@ const filteredSmsLogs = computed(() => {
         item.id,
         item.token,
         item.from,
-        item.text,
         item.service_name,
         item.service_id,
       ]
@@ -189,7 +188,7 @@ onMounted(() => {
             v-model="filters.query"
             class="input"
             type="text"
-            placeholder="service / token / text / id"
+            placeholder="service / token / id"
           />
         </label>
       </div>
@@ -201,15 +200,12 @@ onMounted(() => {
         v-if="filteredSmsLogs.length"
         caption="Admin SMS"
         aria-label="Admin SMS"
-        :min-width="980"
+        :min-width="1040"
       >
         <thead>
           <tr>
-            <th scope="col">Service</th>
-            <th scope="col">Service ID</th>
             <th scope="col">From</th>
-            <th scope="col">Token</th>
-            <th scope="col">Text</th>
+            <th scope="col">To</th>
             <th scope="col">Status</th>
             <th scope="col">Cost</th>
             <th scope="col">Created</th>
@@ -218,23 +214,23 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="(item, index) in filteredSmsLogs" :key="`${item.external_id || item.id || index}-${index}`">
-            <td>{{ item.service_name || '-' }}</td>
-            <td>
+            <td class="sms-party-cell">
+              <div class="party-title">{{ item.service_name || '-' }}</div>
+              <div class="party-detail mono">from: {{ item.from || '-' }}</div>
               <SensitiveValue
                 :value="item.service_id"
                 label="service_id"
                 :copy-label="`Copy full SMS service_id ${item.external_id || item.id || index}`"
               />
             </td>
-            <td class="mono">{{ item.from || '-' }}</td>
-            <td>
+            <td class="sms-party-cell">
+              <div class="party-title">User token</div>
               <SensitiveValue
                 :value="item.token"
                 label="token"
                 :copy-label="`Copy full SMS token ${item.external_id || item.id || index}`"
               />
             </td>
-            <td>{{ item.text || '-' }}</td>
             <td>
               <BaseStatusChip
                 :label="statusLabel(item.status)"
@@ -260,6 +256,20 @@ onMounted(() => {
   grid-template-columns: repeat(2, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
+}
+
+.sms-party-cell {
+  min-width: 220px;
+}
+
+.party-title {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.party-detail {
+  margin: 3px 0 8px;
+  color: var(--text-dim);
 }
 
 @media (max-width: 760px) {

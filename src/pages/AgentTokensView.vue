@@ -521,7 +521,7 @@ onMounted(() => {
         v-if="tokens.length"
         caption="Список токенов пользователя"
         aria-label="Список токенов пользователя"
-        :min-width="920"
+        :min-width="1220"
       >
         <thead>
           <tr>
@@ -536,8 +536,8 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-for="token in tokens" :key="token.id">
-            <td>{{ token.name || '-' }}</td>
-            <td>
+            <td class="token-name-cell">{{ token.name || '-' }}</td>
+            <td class="token-cell">
               <SensitiveValue
                 :value="token.token"
                 label="token"
@@ -552,8 +552,8 @@ onMounted(() => {
                 :aria-label="`Token status: ${tokenStatusLabel(token.status)}`"
               />
             </td>
-            <td class="mono">{{ token.expires_at || '-' }}</td>
-            <td>
+            <td class="mono expires-cell">{{ token.expires_at || '-' }}</td>
+            <td class="agent-id-cell">
               <SensitiveValue
                 :value="token.agent_id"
                 label="agent_id"
@@ -659,6 +659,21 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   min-width: 360px;
+}
+
+.token-name-cell {
+  min-width: 140px;
+}
+
+.token-cell,
+.agent-id-cell {
+  min-width: 210px;
+  max-width: 250px;
+}
+
+.expires-cell {
+  min-width: 220px;
+  white-space: nowrap;
 }
 
 .ttl-inline {

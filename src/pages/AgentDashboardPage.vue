@@ -40,6 +40,7 @@ const tabs = computed(() => {
   return [
     { name: 'dashboard-user-profile', to: '/dashboard/profile', label: 'My Profile' },
     { name: 'dashboard-tokens', to: '/dashboard/tokens', label: 'My Tokens' },
+    { name: 'dashboard-user-sms', to: '/dashboard/user-sms', label: 'My SMS' },
   ];
 });
 
@@ -88,20 +89,14 @@ onMounted(() => {
 <template>
   <div class="dashboard-page">
     <header class="dash-header">
-      <div>
+      <div class="dash-header-main">
         <h1 class="dash-title">{{ dashboardTitle }}</h1>
         <div class="dash-meta">
           <span class="badge">role: {{ claims.role || 'unknown' }}</span>
           <span class="badge mono">phone: {{ claims.phone || '-' }}</span>
         </div>
-      </div>
 
-      <button type="button" class="btn btn-danger" @click="logout">Выйти</button>
-    </header>
-
-    <section class="dash-layout">
-      <aside class="dash-sidebar">
-        <nav class="dash-nav">
+        <nav class="dash-nav" aria-label="Навигация кабинета">
           <RouterLink
             v-for="tab in tabs"
             :key="tab.name"
@@ -113,27 +108,33 @@ onMounted(() => {
           </RouterLink>
         </nav>
 
-        <div v-if="isAgentRole" class="card">
+        <div v-if="isAgentRole" class="agent-context">
           <h3>Agent Context</h3>
 
-          <p class="subtitle">
-            user_id:
-            <SensitiveValue :value="claims.userId" label="user_id" copy-label="Copy full dashboard user_id" />
-          </p>
-          <p class="subtitle">
-            agent_id:
-            <SensitiveValue :value="sessionState.agentId" label="agent_id" copy-label="Copy full dashboard agent_id" empty-label="не найден" />
-          </p>
+          <div class="agent-context-values">
+            <p class="subtitle">
+              user_id:
+              <SensitiveValue :value="claims.userId" label="user_id" copy-label="Copy full dashboard user_id" />
+            </p>
+            <p class="subtitle">
+              agent_id:
+              <SensitiveValue :value="sessionState.agentId" label="agent_id" copy-label="Copy full dashboard agent_id" empty-label="не найден" />
+            </p>
+          </div>
 
-          <div class="side-actions">
+          <div class="agent-context-actions">
             <button type="button" class="btn btn-secondary" :disabled="syncingProfile" @click="syncAgentProfile">
               {{ syncingProfile ? 'Обновляем...' : 'Обновить из профиля' }}
             </button>
             <p v-if="syncInfo" :class="sessionState.agentId ? 'success' : 'error'">{{ syncInfo }}</p>
           </div>
         </div>
-      </aside>
+      </div>
 
+      <button type="button" class="btn btn-danger" @click="logout">Выйти</button>
+    </header>
+
+    <section class="dash-layout">
       <main class="dash-content">
         <RouterView />
       </main>
@@ -161,6 +162,10 @@ onMounted(() => {
   box-shadow: var(--shadow);
 }
 
+.dash-header-main {
+  min-width: 0;
+}
+
 .dash-title {
   margin: 0;
   font-size: clamp(2rem, 4vw, 3.2rem);
@@ -177,29 +182,29 @@ onMounted(() => {
 
 .dash-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 300px) 1fr;
   gap: 24px;
 }
 
-.dash-sidebar {
-  display: grid;
-  gap: 18px;
-  align-content: start;
-}
-
 .dash-nav {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  margin-top: 24px;
 }
 
 .nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   text-decoration: none;
   color: #48586e;
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 10px 16px;
   background: #ffffff;
   font-weight: 600;
+  white-space: nowrap;
   transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -219,10 +224,40 @@ onMounted(() => {
   min-width: 0;
 }
 
-.side-actions {
+.agent-context {
   display: grid;
-  gap: 12px;
-  margin-top: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: center;
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.agent-context h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.agent-context-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  min-width: 0;
+}
+
+.agent-context .subtitle {
+  margin: 0;
+}
+
+.agent-context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
 @media (max-width: 980px) {
@@ -230,8 +265,27 @@ onMounted(() => {
     flex-direction: column;
   }
 
+  .dash-header .btn-danger {
+    align-self: flex-start;
+  }
+
   .dash-layout {
     grid-template-columns: 1fr;
+  }
+
+  .agent-context {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .dash-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .nav-link {
+    justify-content: flex-start;
   }
 }
 </style>
