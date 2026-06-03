@@ -98,9 +98,14 @@ onMounted(async () => {
   if (sessionState.agentId) {
     await refreshBalance();
     if (fromSuccess) {
-      setTimeout(() => {
-        refreshBalance();
-      }, 1500);
+      // Webhook может прийти с задержкой — опрашиваем несколько раз
+      const prevBalance = balance.value ?? 0;
+      const delays = [2000, 4000, 8000];
+      for (const delay of delays) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        await refreshBalance();
+        if ((balance.value ?? 0) > prevBalance) break;
+      }
     }
   }
 
